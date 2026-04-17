@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dokumentasi Pandu Backend</title>
+  <style>
+    :root {
+      --bg: #edf2f4;
+      --card: #8d99ae;
+      --card-soft: rgba(255, 255, 255, 0.2);
+      --stroke: #2b2d42;
+      --text: #2b2d42;
+      --muted: #3f4768;
+      --label: #f1faee;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: monospace;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .wrap {
+      width: min(920px, 100%);
+    }
+
+    .card {
+      background: var(--card);
+      border: 2px solid var(--stroke);
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 14px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+    }
+
+    .hero {
+      text-align: center;
+    }
+
+    h1, h2, h3 { margin: 0 0 8px; }
+
+    h1 {
+      font-size: 1.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    h2 {
+      font-size: 1.22rem;
+      text-transform: uppercase;
+    }
+
+    h3 {
+      font-size: 1.06rem;
+      margin-top: 8px;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 1rem;
+      margin-top: 4px;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin: 10px 0;
+      justify-content: center;
+    }
+
+    .method {
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 2px solid var(--stroke);
+      background: rgba(255, 255, 255, 0.55);
+      color: var(--text);
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+
+    code, pre {
+      font-family: inherit;
+      background: var(--card-soft);
+      border: 2px solid var(--stroke);
+      border-radius: 10px;
+    }
+
+    code {
+      padding: 4px 8px;
+      word-break: break-all;
+      font-size: 0.98rem;
+    }
+
+    pre {
+      margin: 8px 0;
+      padding: 12px;
+      overflow: auto;
+      font-size: 0.96rem;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .ok,
+    .warn {
+      display: inline-block;
+      color: var(--label);
+      background: var(--text);
+      border-radius: 8px;
+      padding: 6px 10px;
+      margin-top: 6px;
+      font-size: 0.86rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .mini-card {
+      background: rgba(255, 255, 255, 0.14);
+      border: 2px solid var(--stroke);
+      border-radius: 14px;
+      padding: 12px;
+    }
+
+    .section-label {
+      display: inline-block;
+      font-weight: 700;
+      margin-bottom: 8px;
+      background: var(--text);
+      color: var(--label);
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 860px) {
+      .grid { grid-template-columns: 1fr; }
+      .card { padding: 18px; }
+      h1 { font-size: 1.36rem; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card hero">
+      <h1>Dokumentasi API Pandu Backend</h1>
+      <div class="meta">Fokus backend: Auth + Kode Registrasi + Modul + Sesi + Enrollment (berdasarkan peran)</div>
+      <div class="row">
+        <span class="section-label">URL Dasar</span>
+        <code id="baseUrl"></code>
+      </div>
+      <div class="meta">Peran: <b>admin</b>, <b>teacher</b>, <b>student</b></div>
+      <div class="meta"><b>API create module:</b> <code>POST /api/modules</code> (teacher/admin)</div>
+      <div class="meta">Lokasi file konten: <code>storage/modules/{moduleId}/sessions/{sessionId}</code></div>
+      <div class="meta">Lokasi file banner: <code>storage/modules/{moduleId}/banner</code></div>
+    </section>
+
+    <section class="card">
+      <h2>Endpoint Autentikasi</h2>
+      <div class="grid">
+        <article class="mini-card">
+          <h3>Registrasi</h3>
+          <div class="row"><span class="method">POST</span><code id="registerPath">/api/auth/register</code></div>
+          <pre id="registerBody">{
+  "name": "Siswa 1",
+  "email": "student1@mail.com",
+  "password": "password123",
+  "registration_code": "938214"
+}</pre>
+          <div class="meta warn">Role user saat register ditentukan otomatis dari target role kode registrasi.</div>
+        </article>
+        <article class="mini-card">
+          <h3>Masuk</h3>
+          <div class="row"><span class="method">POST</span><code id="loginPath">/api/auth/login</code></div>
+          <pre id="loginBody">{
+  "email": "teacher1@mail.com",
+  "password": "password123"
+}</pre>
+          <h3>Contoh Respons Login</h3>
+          <pre>{
+  "success": true,
+  "message": "Login berhasil",
+  "data": {
+    "user": {
+      "id": 3,
+      "name": "Guru 1",
+      "email": "teacher1@mail.com",
+      "role": "teacher"
+    },
+    "token": "JWT_TOKEN",
+    "token_type": "Bearer"
+  }
+}</pre>
+        </article>
+        <article class="mini-card">
+          <h3>Logout</h3>
+          <div class="row"><span class="method">POST</span><code>/api/auth/logout</code></div>
+          <pre>curl -X POST "{{BASE_URL}}/api/auth/logout" \
+  -H "Authorization: Bearer JWT_TOKEN"</pre>
+          <div class="meta">Setelah logout, token langsung masuk blacklist dan tidak bisa dipakai lagi.</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Endpoint Kode Registrasi</h2>
+      <div class="meta ok">Admin/Teacher dapat membuat kode registrasi 4-6 digit</div>
+      <div class="meta ok">Teacher hanya bisa membuat kode untuk role student</div>
+      <div class="meta ok">Admin bisa membuat kode untuk role student atau teacher</div>
+
+      <pre id="registrationCodeList">POST /api/auth/register-codes                 (admin/teacher)
+GET /api/auth/register-codes                  (admin/teacher)
+GET /api/auth/register-codes/:codeId/usages   (admin/teacher)
+PATCH /api/auth/register-codes/:codeId/revoke (admin/teacher)
+PATCH /api/auth/register-codes/expired/archive (admin/teacher)
+DELETE /api/auth/register-codes/expired       (admin/teacher)</pre>
+
+      <h3>Body Create Kode Registrasi</h3>
+      <pre>{
+  "target_role": "student",
+  "code_length": 6,
+  "max_uses": 10,
+  "expires_in_hours": 24
+}</pre>
+
+      <h3>Contoh Create Kode (teacher)</h3>
+      <pre>curl -X POST "{{BASE_URL}}/api/auth/register-codes" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target_role": "student",
+    "code_length": 6,
+    "max_uses": 20,
+    "expires_in_hours": 48
+  }'</pre>
+
+      <h3>Contoh Daftar Kode & Riwayat Penggunaan</h3>
+      <pre>curl -X GET "{{BASE_URL}}/api/auth/register-codes" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER"
+
+curl -X GET "{{BASE_URL}}/api/auth/register-codes/12/usages" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER"</pre>
+
+      <h3>Contoh Nonaktifkan Kode</h3>
+      <pre>curl -X PATCH "{{BASE_URL}}/api/auth/register-codes/12/revoke" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER"</pre>
+
+      <h3>Contoh Arsip/Hapus Kode Kadaluarsa</h3>
+      <pre># Arsip = ubah kode kadaluarsa aktif menjadi nonaktif
+curl -X PATCH "{{BASE_URL}}/api/auth/register-codes/expired/archive" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER"
+
+# Hapus = hapus permanen semua kode yang sudah kadaluarsa
+curl -X DELETE "{{BASE_URL}}/api/auth/register-codes/expired" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER"</pre>
+    </section>
+
+    <section class="card">
+      <h2>Endpoint Modul</h2>
+      <div class="meta ok">Teacher/Admin: membuat, mengubah, menghapus modul dan konten sesi</div>
+      <div class="meta ok">Student: membaca modul yang sudah di-enroll</div>
+
+      <pre id="moduleList">GET /api/modules                     (semua yang diizinkan berdasarkan peran)
+    GET /api/modules/:moduleId           (harus punya akses)
+    POST /api/modules                    (teacher/admin, multipart: name, description?, banner?)
+    PUT /api/modules/:moduleId           (teacher/admin pemilik modul)
+    DELETE /api/modules/:moduleId        (teacher/admin pemilik modul)
+    PATCH /api/modules/:moduleId/regenerate-enroll-key (teacher/admin pemilik modul)</pre>
+
+      <h3>Field Multipart Buat Modul</h3>
+      <pre id="moduleCreateFields">name: string (wajib)
+    description: string (opsional)
+    banner: file (opsional, pdf/gambar/video sesuai filter backend)
+
+    Perilaku otomatis:
+    - membuat enroll_key (kunci bersama per modul)
+    - otomatis membuat 3 sesi awal: Sesi 1, Sesi 2, Sesi 3</pre>
+
+      <h3>Contoh Request Create Module (tanpa banner)</h3>
+      <pre>curl -X POST "{{BASE_URL}}/api/modules" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -F "name=Modul Algebra Dasar" \
+  -F "description=Materi aljabar untuk semester 1"</pre>
+
+      <h3>Contoh Request Create Module (dengan banner)</h3>
+      <pre>curl -X POST "{{BASE_URL}}/api/modules" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -F "name=Modul Trigonometri" \
+  -F "description=Pengantar trigonometri" \
+  -F "banner=@C:/path/banner.jpg"</pre>
+
+      <h3>Contoh Respons Create Module</h3>
+      <pre>{
+  "success": true,
+  "message": "Module berhasil dibuat dengan 3 sesi default",
+  "data": {
+    "id": 12,
+    "teacher_id": 3,
+    "teacher_name": "Guru 1",
+    "name": "Modul Trigonometri",
+    "description": "Pengantar trigonometri",
+    "banner_image_path": "storage/modules/12/banner/17100000-banner.jpg",
+    "enroll_key": "A1B2C3D4E5F6",
+    "created_at": "2026-04-17T10:00:00.000Z"
+  }
+}</pre>
+
+      <h3>Contoh Update, Delete, dan Regenerate Key</h3>
+      <pre>curl -X PUT "{{BASE_URL}}/api/modules/12" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -F "name=Modul Trigonometri Lanjut" \
+  -F "description=Update deskripsi"
+
+curl -X PATCH "{{BASE_URL}}/api/modules/12/regenerate-enroll-key" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER"
+
+curl -X DELETE "{{BASE_URL}}/api/modules/12" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER"</pre>
+    </section>
+
+    <section class="card">
+      <h2>Endpoint Sesi</h2>
+      <pre id="sessionList">GET /api/modules/:moduleId/sessions
+POST /api/modules/:moduleId/sessions                 (teacher/admin)
+PUT /api/modules/:moduleId/sessions/:sessionId       (teacher/admin)
+
+GET /api/modules/:moduleId/sessions/:sessionId/contents
+GET /api/modules/:moduleId/sessions/:sessionId/contents/:contentId/file
+POST /api/modules/:moduleId/sessions/:sessionId/contents        (teacher/admin)
+DELETE /api/modules/:moduleId/sessions/:sessionId/contents/:contentId (teacher/admin)</pre>
+
+  <h3>Payload Tambah Konten Sesi</h3>
+  <pre id="sessionContentPayload">content_type: file | url | text (wajib)
+title: string (opsional)
+file: binary (wajib jika content_type=file)
+url: string (wajib jika content_type=url)
+text_content: string (wajib jika content_type=text)</pre>
+
+      <h3>Contoh Create Sesi Baru</h3>
+      <pre>curl -X POST "{{BASE_URL}}/api/modules/12/sessions" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Sesi Turunan",
+    "description": "Dasar diferensial"
+  }'</pre>
+
+      <h3>Contoh Update Sesi</h3>
+      <pre>curl -X PUT "{{BASE_URL}}/api/modules/12/sessions/33" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Sesi Turunan Dasar",
+    "description": "Update deskripsi",
+    "sort_order": 2
+  }'</pre>
+
+      <h3>Contoh Tambah Konten Sesi</h3>
+      <pre># 1) Konten URL (misalnya YouTube)
+curl -X POST "{{BASE_URL}}/api/modules/12/sessions/33/contents" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -F "content_type=url" \
+  -F "title=Video pembelajaran" \
+  -F "url=https://www.youtube.com/watch?v=xxxxxx"
+
+# 2) Konten Text
+curl -X POST "{{BASE_URL}}/api/modules/12/sessions/33/contents" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -F "content_type=text" \
+  -F "title=Ringkasan" \
+  -F "text_content=Materi inti sesi ini adalah ..."
+
+# 3) Konten File (pdf/jpg/video)
+curl -X POST "{{BASE_URL}}/api/modules/12/sessions/33/contents" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -F "content_type=file" \
+  -F "title=Modul PDF" \
+  -F "file=@C:/path/materi.pdf"</pre>
+
+      <h3>Contoh Baca & Hapus Konten Sesi</h3>
+      <pre>curl -X GET "{{BASE_URL}}/api/modules/12/sessions/33/contents" \
+  -H "Authorization: Bearer JWT_TOKEN_STUDENT"
+
+curl -X GET "{{BASE_URL}}/api/modules/12/sessions/33/contents/70/file" \
+  -H "Authorization: Bearer JWT_TOKEN_STUDENT"
+
+curl -X DELETE "{{BASE_URL}}/api/modules/12/sessions/33/contents/70" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER"</pre>
+    </section>
+
+    <section class="card">
+  <h2>Endpoint Enrollment</h2>
+      <div class="meta warn">Hanya role student yang boleh enroll via key</div>
+      <pre id="enrollmentList">POST /api/enrollments/enroll
+Bodi:
+{
+  "enroll_key": "ABC123DEF456"
+}
+
+GET /api/enrollments/me</pre>
+
+      <h3>Contoh Enroll sebagai Student</h3>
+      <pre>curl -X POST "{{BASE_URL}}/api/enrollments/enroll" \
+  -H "Authorization: Bearer JWT_TOKEN_STUDENT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enroll_key": "A1B2C3D4E5F6"
+  }'
+
+curl -X GET "{{BASE_URL}}/api/enrollments/me" \
+  -H "Authorization: Bearer JWT_TOKEN_STUDENT"</pre>
+    </section>
+
+    <section class="card">
+  <h2>Header</h2>
+      <pre id="headers">Authorization: Bearer &lt;JWT_TOKEN&gt;
+Content-Type: application/json
+
+Untuk unggah file gunakan multipart/form-data</pre>
+
+      <h3>Alur Cepat End-to-End</h3>
+      <pre>1) Admin/Teacher login -> dapat token
+2) Admin/Teacher create registration code (4-6 digit)
+3) User register menggunakan registration_code -> role mengikuti target_role kode
+4) Teacher create module -> dapat enroll_key + 3 sesi default
+5) Teacher isi konten sesi (url/text/file)
+6) Student enroll pakai enroll_key
+7) Student baca module, sesi, dan file konten yang sudah diakses
+8) Jika perlu, user logout agar token saat ini tidak bisa dipakai lagi</pre>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const baseUrl = document.getElementById('baseUrl');
+      baseUrl.textContent = window.location.origin;
+    })();
+  </script>
+</body>
+</html>
