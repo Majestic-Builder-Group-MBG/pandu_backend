@@ -168,6 +168,7 @@
       <div class="meta"><b>API create module:</b> <code>POST /api/modules</code> (teacher/admin)</div>
       <div class="meta">Lokasi file konten: <code>storage/modules/{moduleId}/sessions/{sessionId}</code></div>
       <div class="meta">Lokasi file banner: <code>storage/modules/{moduleId}/banner</code></div>
+      <div class="meta warn">Akses banner untuk frontend gunakan endpoint: <code>GET /api/modules/:moduleId/banner</code> (wajib token).</div>
     </section>
 
     <section class="card">
@@ -182,6 +183,7 @@
   "password": "password123",
   "registration_code": "938214"
 }</pre>
+          <div class="meta">Register menerima <b>application/json</b> dan <b>text/plain</b> (isi wajib JSON valid).</div>
           <div class="meta warn">Role user saat register ditentukan otomatis dari target role kode registrasi.</div>
         </article>
         <article class="mini-card">
@@ -191,6 +193,7 @@
   "email": "teacher1@mail.com",
   "password": "password123"
 }</pre>
+          <div class="meta">Login menerima <b>application/json</b> dan <b>text/plain</b> (isi wajib JSON valid).</div>
           <h3>Contoh Respons Login</h3>
           <pre>{
   "success": true,
@@ -277,6 +280,7 @@ curl -X DELETE "{{BASE_URL}}/api/auth/register-codes/expired" \
 
       <pre id="moduleList">GET /api/modules                     (semua yang diizinkan berdasarkan peran)
     GET /api/modules/:moduleId           (harus punya akses)
+    GET /api/modules/:moduleId/banner    (harus punya akses)
     POST /api/modules                    (teacher/admin, multipart: name, description?, banner?)
     PUT /api/modules/:moduleId           (teacher/admin pemilik modul)
     DELETE /api/modules/:moduleId        (teacher/admin pemilik modul)
@@ -315,10 +319,15 @@ curl -X DELETE "{{BASE_URL}}/api/auth/register-codes/expired" \
     "name": "Modul Trigonometri",
     "description": "Pengantar trigonometri",
     "banner_image_path": "storage/modules/12/banner/17100000-banner.jpg",
+    "banner_download_url": "/api/modules/12/banner",
     "enroll_key": "A1B2C3D4E5F6",
     "created_at": "2026-04-17T10:00:00.000Z"
   }
 }</pre>
+
+      <h3>Contoh Ambil Banner Modul</h3>
+      <pre>curl -X GET "{{BASE_URL}}/api/modules/12/banner" \
+  -H "Authorization: Bearer JWT_TOKEN_STUDENT"</pre>
 
       <h3>Contoh Update, Delete, dan Regenerate Key</h3>
       <pre>curl -X PUT "{{BASE_URL}}/api/modules/12" \

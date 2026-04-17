@@ -29,6 +29,12 @@ const moveTempFileTo = (tempPath, targetDir) => {
 };
 
 const toRelativeStoragePath = (absPath) => path.relative(path.join(__dirname, '..'), absPath).replace(/\\/g, '/');
+const attachModuleBannerUrl = (moduleRow) => ({
+  ...moduleRow,
+  banner_download_url: moduleRow && moduleRow.banner_image_path
+    ? `/api/modules/${moduleRow.id}/banner`
+    : null
+});
 
 const canManageModule = async (user, moduleId) => {
   if (user.role === 'admin') return true;
@@ -111,7 +117,7 @@ const createModule = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: 'Module berhasil dibuat dengan 3 sesi default',
-      data: rows[0]
+      data: attachModuleBannerUrl(rows[0])
     });
   } catch (error) {
     await connection.rollback();
@@ -161,7 +167,8 @@ const getModules = async (req, res) => {
       );
     }
 
-    return res.json({ success: true, data: rows });
+    const mappedRows = rows.map((row) => attachModuleBannerUrl(row));
+    return res.json({ success: true, data: mappedRows });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Gagal mengambil daftar module', error: error.message });
   }
@@ -194,7 +201,7 @@ const getModuleById = async (req, res) => {
       [moduleId]
     );
 
-    const data = { ...moduleRows[0], sessions };
+    const data = { ...attachModuleBannerUrl(moduleRows[0]), sessions };
     if (req.user.role === 'student') {
       delete data.enroll_key;
     }
@@ -250,10 +257,39 @@ const updateModule = async (req, res) => {
 
     const [updatedRows] = await db.query('SELECT * FROM modules WHERE id = ?', [moduleId]);
 
-    return res.json({ success: true, message: 'Module berhasil diperbarui', data: updatedRows[0] });
+    return res.json({ success: true, message: 'Module berhasil diperbarui', data: attachModuleBannerUrl(updatedRows[0]) });
   } catch (error) {
     if (req.file) removeFileSafe(req.file.path);
     return res.status(500).json({ success: false, message: 'Gagal memperbarui module', error: error.message });
+  }
+};
+
+const downloadModuleBanner = async (req, res) => {
+  const moduleId = Number(req.params.moduleId);
+
+  try {
+    const allowed = await canReadModule(req.user, moduleId);
+    if (!allowed) {
+      return res.status(403).json({ success: false, message: 'Tidak memiliki akses banner module ini' });
+    }
+
+    const [rows] = await db.query('SELECT id, banner_image_path FROM modules WHERE id = ?', [moduleId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Module tidak ditemukan' });
+    }
+
+    if (!rows[0].banner_image_path) {
+      return res.status(404).json({ success: false, message: 'Banner module belum tersedia' });
+    }
+
+    const absolutePath = path.join(__dirname, '..', rows[0].banner_image_path);
+    if (!fs.existsSync(absolutePath)) {
+      return res.status(404).json({ success: false, message: 'File banner tidak ditemukan di storage' });
+    }
+
+    return res.sendFile(absolutePath);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Gagal mengambil banner module', error: error.message });
   }
 };
 
@@ -570,6 +606,7 @@ module.exports = {
   createModule,
   getModules,
   getModuleById,
+  downloadModuleBanner,
   updateModule,
   deleteModule,
   regenerateEnrollKey,

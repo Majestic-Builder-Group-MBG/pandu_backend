@@ -14,8 +14,8 @@ const {
   deleteExpiredRegistrationCodes
 } = require('../controllers/registrationCodeController');
 
-router.post('/register', authRateLimiter, register);
-router.post('/login', authRateLimiter, login);
+router.post('/register', express.text({ type: 'text/plain' }), authRateLimiter, register);
+router.post('/login', express.text({ type: 'text/plain' }), authRateLimiter, login);
 router.post('/logout', auth, logout);
 
 router.post('/register-codes', auth, authorize('admin', 'teacher'), codeIssueRateLimiter, createRegistrationCode);

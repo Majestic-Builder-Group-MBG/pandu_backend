@@ -6,6 +6,7 @@ const {
   createModule,
   getModules,
   getModuleById,
+  downloadModuleBanner,
   updateModule,
   deleteModule,
   regenerateEnrollKey,
@@ -23,6 +24,7 @@ const router = express.Router();
 router.get('/', auth, getModules);
 router.post('/', auth, authorize('teacher', 'admin'), upload.single('banner'), createModule);
 router.get('/:moduleId', auth, getModuleById);
+router.get('/:moduleId/banner', auth, downloadModuleBanner);
 router.put('/:moduleId', auth, authorize('teacher', 'admin'), upload.single('banner'), updateModule);
 router.delete('/:moduleId', auth, authorize('teacher', 'admin'), deleteModule);
 router.patch('/:moduleId/regenerate-enroll-key', auth, authorize('teacher', 'admin'), regenerateEnrollKey);

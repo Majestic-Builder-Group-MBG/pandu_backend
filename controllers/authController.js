@@ -6,13 +6,41 @@ const { tokenSecurityService } = require('../services/tokenSecurityService');
 
 const jwtExpiresIn = process.env.JWT_EXPIRES_IN || '7d';
 
+const normalizeAuthBody = (rawBody) => {
+  if (typeof rawBody === 'string') {
+    const trimmed = rawBody.trim();
+    if (!trimmed) {
+      return {};
+    }
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        const error = new Error('Body text/plain harus berupa JSON object yang valid');
+        error.status = 400;
+        throw error;
+      }
+      return parsed;
+    } catch (error) {
+      if (!error.status) {
+        error.status = 400;
+        error.message = 'Body text/plain harus berupa JSON valid';
+      }
+      throw error;
+    }
+  }
+
+  return rawBody || {};
+};
+
 // ================== REGISTER ==================
 const register = async (req, res) => {
   let connection;
   let transactionOpen = false;
 
   try {
-    const { name, email, password, role, registration_code } = req.body || {};
+    const normalizedBody = normalizeAuthBody(req.body);
+    const { name, email, password, role, registration_code } = normalizedBody;
 
     if (!name || !email || !password || !registration_code) {
       return res.status(400).json({
@@ -127,7 +155,8 @@ const register = async (req, res) => {
 // ================== LOGIN (tetap disertakan) ==================
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const normalizedBody = normalizeAuthBody(req.body);
+    const { email, password } = normalizedBody;
 
     if (!email || !password) {
       return res.status(400).json({
