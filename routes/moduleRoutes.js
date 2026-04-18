@@ -13,7 +13,11 @@ const {
   getModuleSessions,
   createSession,
   updateSession,
+  getSessionSchedule,
+  updateSessionSchedule,
+  createSessionContentViewUrl,
   addSessionContent,
+  updateSessionContent,
   getSessionContents,
   deleteSessionContent,
   downloadSessionContentFile
@@ -32,10 +36,14 @@ router.patch('/:moduleId/regenerate-enroll-key', auth, authorize('teacher', 'adm
 router.get('/:moduleId/sessions', auth, getModuleSessions);
 router.post('/:moduleId/sessions', auth, authorize('teacher', 'admin'), upload.none(), createSession);
 router.put('/:moduleId/sessions/:sessionId', auth, authorize('teacher', 'admin'), upload.none(), updateSession);
+router.get('/:moduleId/sessions/:sessionId/schedule', auth, getSessionSchedule);
+router.patch('/:moduleId/sessions/:sessionId/schedule', auth, authorize('teacher', 'admin'), upload.none(), updateSessionSchedule);
 
 router.get('/:moduleId/sessions/:sessionId/contents', auth, getSessionContents);
 router.get('/:moduleId/sessions/:sessionId/contents/:contentId/file', auth, downloadSessionContentFile);
+router.post('/:moduleId/sessions/:sessionId/contents/:contentId/view-url', auth, createSessionContentViewUrl);
 router.post('/:moduleId/sessions/:sessionId/contents', auth, authorize('teacher', 'admin'), upload.single('file'), addSessionContent);
+router.put('/:moduleId/sessions/:sessionId/contents/:contentId', auth, authorize('teacher', 'admin'), upload.single('file'), updateSessionContent);
 router.delete('/:moduleId/sessions/:sessionId/contents/:contentId', auth, authorize('teacher', 'admin'), deleteSessionContent);
 
 module.exports = router;

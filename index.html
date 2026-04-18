@@ -17,21 +17,125 @@
 
     * { box-sizing: border-box; }
 
+    html { scroll-behavior: smooth; }
+
     body {
       margin: 0;
       font-family: monospace;
       background: var(--bg);
       color: var(--text);
       line-height: 1.45;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
       min-height: 100vh;
-      padding: 20px;
+      padding: 86px 20px 20px;
+    }
+
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1300;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 20px;
+      background: var(--card);
+      border-bottom: 2px solid var(--stroke);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+    }
+
+    .nav-brand {
+      margin: 0;
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    .menu-toggle {
+      border: 2px solid var(--stroke);
+      background: var(--card-soft);
+      color: var(--text);
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 700;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+
+    .menu-toggle:hover {
+      background: rgba(255, 255, 255, 0.38);
+    }
+
+    .nav-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 1200;
+      background: rgba(0, 0, 0, 0.35);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .app-shell {
+      width: min(1240px, 100%);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
     }
 
     .wrap {
-      width: min(920px, 100%);
+      width: 100%;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 12px;
+    }
+
+    .menu-group { margin-bottom: 10px; }
+
+    .menu-title {
+      display: inline-block;
+      font-weight: 700;
+      font-size: 0.9rem;
+      margin-bottom: 6px;
+      color: var(--label);
+      background: var(--text);
+      border: 2px solid var(--stroke);
+      border-radius: 8px;
+      padding: 4px 8px;
+    }
+
+    .menu {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 6px;
+    }
+
+    .menu a {
+      display: block;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 700;
+      background: var(--card-soft);
+      border: 2px solid var(--stroke);
+      border-radius: 8px;
+      padding: 6px 8px;
+    }
+
+    .menu a:hover {
+      background: rgba(255, 255, 255, 0.38);
+    }
+
+    body.nav-open .nav-backdrop {
+      opacity: 1;
+      pointer-events: auto;
     }
 
     .card {
@@ -148,30 +252,109 @@
       font-size: 0.95rem;
     }
 
+    @media (max-width: 980px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: fixed;
+        top: 74px;
+        left: 12px;
+        bottom: 12px;
+        width: min(86vw, 320px);
+        overflow: auto;
+        z-index: 1250;
+        margin: 0;
+        transform: translateX(calc(-100% - 20px));
+        transition: transform 0.24s ease;
+      }
+
+      body.nav-open .sidebar {
+        transform: translateX(0);
+      }
+
+      .menu {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
     @media (max-width: 860px) {
       .grid { grid-template-columns: 1fr; }
       .card { padding: 18px; }
       h1 { font-size: 1.36rem; }
+      .menu { grid-template-columns: 1fr; }
+      .nav-brand { font-size: 0.9rem; }
+    }
+
+    @media (min-width: 981px) {
+      .menu-toggle {
+        display: none;
+      }
+
+      .nav-backdrop {
+        display: none;
+      }
     }
   </style>
 </head>
 <body>
-  <main class="wrap">
-    <section class="card hero">
+  <header class="navbar">
+    <h2 class="nav-brand">Pandu Backend Docs</h2>
+    <button id="menuToggle" class="menu-toggle" type="button" aria-expanded="false" aria-controls="docSidebar">Menu</button>
+  </header>
+  <div id="navBackdrop" class="nav-backdrop" aria-hidden="true"></div>
+  <div class="app-shell">
+    <aside id="docSidebar" class="card sidebar">
+      <h2>Menu Dokumentasi</h2>
+      <div class="menu-group">
+        <span class="menu-title">Umum</span>
+        <ul class="menu">
+          <li><a href="#overview">Overview</a></li>
+          <li><a href="#headers-section">Header & Alur</a></li>
+        </ul>
+      </div>
+      <div class="menu-group">
+        <span class="menu-title">Autentikasi</span>
+        <ul class="menu">
+          <li><a href="#auth">Auth</a></li>
+          <li><a href="#registration-codes">Kode Registrasi</a></li>
+        </ul>
+      </div>
+      <div class="menu-group">
+        <span class="menu-title">Pembelajaran</span>
+        <ul class="menu">
+          <li><a href="#modules">Module</a></li>
+          <li><a href="#sessions">Sesi & Konten</a></li>
+          <li><a href="#public-view">Public View URL</a></li>
+          <li><a href="#enrollments">Enrollment</a></li>
+        </ul>
+      </div>
+    </aside>
+
+    <main class="wrap">
+    <section id="overview" class="card hero">
       <h1>Dokumentasi API Pandu Backend</h1>
       <div class="meta">Fokus backend: Auth + Kode Registrasi + Modul + Sesi + Enrollment (berdasarkan peran)</div>
       <div class="row">
-        <span class="section-label">URL Dasar</span>
+        <span class="section-label">BASIC URL</span>
         <code id="baseUrl"></code>
       </div>
       <div class="meta">Peran: <b>admin</b>, <b>teacher</b>, <b>student</b></div>
       <div class="meta"><b>API create module:</b> <code>POST /api/modules</code> (teacher/admin)</div>
       <div class="meta">Lokasi file konten: <code>storage/modules/{moduleId}/sessions/{sessionId}</code></div>
       <div class="meta">Lokasi file banner: <code>storage/modules/{moduleId}/banner</code></div>
-      <div class="meta warn">Akses banner untuk frontend gunakan endpoint: <code>GET /api/modules/:moduleId/banner</code> (wajib token).</div>
+
+      <h3>Environment Variables (Opsional)</h3>
+      <pre>SESSION_CONTENT_VIEW_TOKEN_SECRET=secret-khusus-view-url
+SESSION_CONTENT_VIEW_TOKEN_TTL_SECONDS=120
+
+Catatan:
+- Jika SESSION_CONTENT_VIEW_TOKEN_SECRET kosong, backend fallback ke JWT_SECRET
+- TTL default public view URL adalah 120 detik</pre>
     </section>
 
-    <section class="card">
+    <section id="auth" class="card">
       <h2>Endpoint Autentikasi</h2>
       <div class="grid">
         <article class="mini-card">
@@ -220,7 +403,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section id="registration-codes" class="card">
       <h2>Endpoint Kode Registrasi</h2>
       <div class="meta ok">Admin/Teacher dapat membuat kode registrasi 4-6 digit</div>
       <div class="meta ok">Teacher hanya bisa membuat kode untuk role student</div>
@@ -273,7 +456,7 @@ curl -X DELETE "{{BASE_URL}}/api/auth/register-codes/expired" \
   -H "Authorization: Bearer JWT_TOKEN_TEACHER"</pre>
     </section>
 
-    <section class="card">
+    <section id="modules" class="card">
       <h2>Endpoint Modul</h2>
       <div class="meta ok">Teacher/Admin: membuat, mengubah, menghapus modul dan konten sesi</div>
       <div class="meta ok">Student: membaca modul yang sudah di-enroll</div>
@@ -294,6 +477,17 @@ curl -X DELETE "{{BASE_URL}}/api/auth/register-codes/expired" \
     Perilaku otomatis:
     - membuat enroll_key (kunci bersama per modul)
     - otomatis membuat 3 sesi awal: Sesi 1, Sesi 2, Sesi 3</pre>
+
+      <h3>Field Multipart Update Modul</h3>
+      <pre>name: string (opsional)
+    description: string (opsional, kirim kosong untuk null)
+    banner: file (opsional)
+    enroll_key: string (opsional, unik antar module)
+
+    Validasi enroll_key saat update:
+    - hanya huruf, angka, dan tanda minus (-)
+    - maksimal 64 karakter
+    - jika sudah dipakai module lain, update ditolak</pre>
 
       <h3>Contoh Request Create Module (tanpa banner)</h3>
       <pre>curl -X POST "{{BASE_URL}}/api/modules" \
@@ -333,40 +527,74 @@ curl -X DELETE "{{BASE_URL}}/api/auth/register-codes/expired" \
       <pre>curl -X PUT "{{BASE_URL}}/api/modules/12" \
   -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
   -F "name=Modul Trigonometri Lanjut" \
-  -F "description=Update deskripsi"
+  -F "description=Update deskripsi" \
+  -F "enroll_key=TRIGONOMETRI-KELAS-7A"
 
 curl -X PATCH "{{BASE_URL}}/api/modules/12/regenerate-enroll-key" \
   -H "Authorization: Bearer JWT_TOKEN_TEACHER"
 
 curl -X DELETE "{{BASE_URL}}/api/modules/12" \
   -H "Authorization: Bearer JWT_TOKEN_TEACHER"</pre>
+
+      <div class="meta warn">Jika enroll_key sudah digunakan module lain, API akan menolak dengan pesan: "Enroll key tidak bisa digunakan, coba gunakan nama lain".</div>
+
+      <h3>Contoh Error Update Enroll Key</h3>
+      <pre># 400 - format invalid
+{
+  "success": false,
+  "message": "Format enroll_key tidak valid. Gunakan hanya huruf, angka, dan tanda minus (-)"
+}
+
+# 409 - duplikat enroll_key
+{
+  "success": false,
+  "message": "Enroll key tidak bisa digunakan, coba gunakan nama lain"
+}</pre>
     </section>
 
-    <section class="card">
+    <section id="sessions" class="card">
       <h2>Endpoint Sesi</h2>
       <pre id="sessionList">GET /api/modules/:moduleId/sessions
 POST /api/modules/:moduleId/sessions                 (teacher/admin)
 PUT /api/modules/:moduleId/sessions/:sessionId       (teacher/admin)
+GET /api/modules/:moduleId/sessions/:sessionId/schedule
+PATCH /api/modules/:moduleId/sessions/:sessionId/schedule (teacher/admin)
 
 GET /api/modules/:moduleId/sessions/:sessionId/contents
 GET /api/modules/:moduleId/sessions/:sessionId/contents/:contentId/file
+POST /api/modules/:moduleId/sessions/:sessionId/contents/:contentId/view-url
 POST /api/modules/:moduleId/sessions/:sessionId/contents        (teacher/admin)
+PUT /api/modules/:moduleId/sessions/:sessionId/contents/:contentId (teacher/admin)
 DELETE /api/modules/:moduleId/sessions/:sessionId/contents/:contentId (teacher/admin)</pre>
+
+      <div class="meta ok">Jadwal sesi default kosong (open_at = null) saat module/sesi dibuat.</div>
+      <div class="meta warn">Jika open_at di masa depan, student tidak bisa membaca konten sesi/file sampai waktu tersebut.</div>
+      <div class="meta">Untuk mendapatkan <b>contentId</b>, ambil dari endpoint <code>GET /api/modules/:moduleId/sessions/:sessionId/contents</code> pada field <code>id</code>.</div>
 
   <h3>Payload Tambah Konten Sesi</h3>
   <pre id="sessionContentPayload">content_type: file | url | text (wajib)
 title: string (opsional)
 file: binary (wajib jika content_type=file)
 url: string (wajib jika content_type=url)
-text_content: string (wajib jika content_type=text)</pre>
+text_content: string (wajib jika content_type=text, opsional untuk file/url)</pre>
+
+      <h3>Field Tambahan di Response Konten</h3>
+      <pre>file_download_url: string | null
+file_kind: image | video | document | other | null
+is_media: boolean
+is_public_view_supported: boolean
+should_use_public_view_url: boolean
+
+Catatan frontend:
+- Jika is_public_view_supported=true, frontend bisa generate public view URL
+- Jika is_media=true (image/video), biasanya tidak perlu public view URL</pre>
 
       <h3>Contoh Create Sesi Baru</h3>
       <pre>curl -X POST "{{BASE_URL}}/api/modules/12/sessions" \
   -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "Sesi Turunan",
-    "description": "Dasar diferensial"
+    "title": "Sesi Turunan"
   }'</pre>
 
       <h3>Contoh Update Sesi</h3>
@@ -375,9 +603,43 @@ text_content: string (wajib jika content_type=text)</pre>
   -H "Content-Type: application/json" \
   -d '{
     "title": "Sesi Turunan Dasar",
-    "description": "Update deskripsi",
     "sort_order": 2
   }'</pre>
+      <div class="meta warn">Validasi: <code>sort_order</code> harus angka bulat lebih dari 0.</div>
+
+      <h3>Contoh Atur Jadwal Sesi</h3>
+      <pre># Set jadwal buka sesi
+curl -X PATCH "{{BASE_URL}}/api/modules/12/sessions/33/schedule" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "open_at": "2026-05-01T08:00:00Z"
+  }'
+
+# Ambil jadwal sesi
+curl -X GET "{{BASE_URL}}/api/modules/12/sessions/33/schedule" \
+  -H "Authorization: Bearer JWT_TOKEN_STUDENT"
+
+# Kosongkan jadwal (balik ke default)
+curl -X PATCH "{{BASE_URL}}/api/modules/12/sessions/33/schedule" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "open_at": null
+  }'</pre>
+
+      <h3>Contoh Error Jadwal</h3>
+      <pre># 400 - format tanggal tidak valid
+{
+  "success": false,
+  "message": "Format open_at tidak valid. Gunakan format tanggal ISO-8601"
+}
+
+# 403 - student akses konten sebelum jadwal buka
+{
+  "success": false,
+  "message": "Sesi ini belum dibuka sesuai jadwal"
+}</pre>
 
       <h3>Contoh Tambah Konten Sesi</h3>
       <pre># 1) Konten URL (misalnya YouTube)
@@ -385,7 +647,8 @@ curl -X POST "{{BASE_URL}}/api/modules/12/sessions/33/contents" \
   -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
   -F "content_type=url" \
   -F "title=Video pembelajaran" \
-  -F "url=https://www.youtube.com/watch?v=xxxxxx"
+  -F "url=https://www.youtube.com/watch?v=xxxxxx" \
+  -F "text_content=Ringkasan video dan poin materi"
 
 # 2) Konten Text
 curl -X POST "{{BASE_URL}}/api/modules/12/sessions/33/contents" \
@@ -399,7 +662,54 @@ curl -X POST "{{BASE_URL}}/api/modules/12/sessions/33/contents" \
   -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
   -F "content_type=file" \
   -F "title=Modul PDF" \
-  -F "file=@C:/path/materi.pdf"</pre>
+  -F "file=@C:/path/materi.pdf" \
+  -F "text_content=Petunjuk membaca file ini"</pre>
+
+      <h3>Contoh Update Konten Sesi</h3>
+      <pre># 1) Ganti judul + deskripsi text_content pada konten file yang sudah ada
+curl -X PUT "{{BASE_URL}}/api/modules/12/sessions/33/contents/70" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -F "title=Modul PDF Revisi" \
+  -F "text_content=Versi revisi untuk minggu ini"
+
+# 2) Ganti file berkas pada konten yang sama
+curl -X PUT "{{BASE_URL}}/api/modules/12/sessions/33/contents/70" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -F "content_type=file" \
+  -F "file=@C:/path/materi-revisi.pdf"
+
+# 3) Ubah tipe konten dari file menjadi URL
+curl -X PUT "{{BASE_URL}}/api/modules/12/sessions/33/contents/70" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -F "content_type=url" \
+  -F "url=https://www.youtube.com/watch?v=xxxxxx" \
+  -F "text_content=Catatan pengantar video"
+
+# 4) Ubah tipe konten menjadi text
+curl -X PUT "{{BASE_URL}}/api/modules/12/sessions/33/contents/70" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -F "content_type=text" \
+  -F "title=Ringkasan final" \
+  -F "text_content=Isi materi lengkap dalam bentuk teks"</pre>
+
+      <h3>Contoh Error Update Konten Sesi</h3>
+      <pre># 400 - validasi payload (contoh: content_type=url tapi url kosong)
+{
+  "success": false,
+  "message": "URL wajib diisi untuk content_type=url"
+}
+
+# 403 - tidak punya akses update (bukan teacher/admin pemilik module)
+{
+  "success": false,
+  "message": "Tidak memiliki akses update konten sesi"
+}
+
+# 404 - konten tidak ditemukan pada module/sesi tersebut
+{
+  "success": false,
+  "message": "Konten sesi tidak ditemukan"
+}</pre>
 
       <h3>Contoh Baca & Hapus Konten Sesi</h3>
       <pre>curl -X GET "{{BASE_URL}}/api/modules/12/sessions/33/contents" \
@@ -410,9 +720,72 @@ curl -X GET "{{BASE_URL}}/api/modules/12/sessions/33/contents/70/file" \
 
 curl -X DELETE "{{BASE_URL}}/api/modules/12/sessions/33/contents/70" \
   -H "Authorization: Bearer JWT_TOKEN_TEACHER"</pre>
+
+      <h3>Contoh Response GET Contents (dengan field helper)</h3>
+      <pre>{
+  "success": true,
+  "data": [
+    {
+      "id": 70,
+      "session_id": 33,
+      "content_type": "file",
+      "title": "Modul PDF",
+      "mime_type": "application/pdf",
+      "file_download_url": "/api/modules/12/sessions/33/contents/70/file",
+      "file_kind": "document",
+      "is_media": false,
+      "is_public_view_supported": true,
+      "should_use_public_view_url": true
+    },
+    {
+      "id": 71,
+      "session_id": 33,
+      "content_type": "file",
+      "title": "Cover",
+      "mime_type": "image/jpeg",
+      "file_download_url": "/api/modules/12/sessions/33/contents/71/file",
+      "file_kind": "image",
+      "is_media": true,
+      "is_public_view_supported": false,
+      "should_use_public_view_url": false
+    }
+  ]
+}</pre>
+
+      <h3 id="public-view">Contoh View Berkas Tanpa Bearer (Public URL Token)</h3>
+      <div class="meta warn">Fitur public view URL hanya untuk berkas non-image dan non-video (contoh: PDF).</div>
+      <pre># 1) Generate URL view (butuh login)
+curl -X POST "{{BASE_URL}}/api/modules/12/sessions/33/contents/70/view-url" \
+  -H "Authorization: Bearer JWT_TOKEN_STUDENT"
+
+# 2) Contoh response
+{
+  "success": true,
+  "message": "URL view berkas berhasil dibuat",
+  "data": {
+    "public_url": "{{BASE_URL}}/public/session-contents/view?token=eyJ...",
+    "expires_in_seconds": 120
+  }
+}
+
+# 3) Buka URL langsung di browser (tanpa Bearer)
+GET {{BASE_URL}}/public/session-contents/view?token=eyJ...</pre>
+
+      <h3>Contoh Error Public View URL</h3>
+      <pre># 400 - file image/video tidak didukung untuk public view URL
+{
+  "success": false,
+  "message": "Public view URL hanya tersedia untuk berkas non-image dan non-video"
+}
+
+# 410 - URL token expired
+{
+  "success": false,
+  "message": "URL sudah expired, silakan kembali ke sistem untuk melihat ulang atau mengunduh."
+}</pre>
     </section>
 
-    <section class="card">
+    <section id="enrollments" class="card">
   <h2>Endpoint Enrollment</h2>
       <div class="meta warn">Hanya role student yang boleh enroll via key</div>
       <pre id="enrollmentList">POST /api/enrollments/enroll
@@ -435,9 +808,9 @@ curl -X GET "{{BASE_URL}}/api/enrollments/me" \
   -H "Authorization: Bearer JWT_TOKEN_STUDENT"</pre>
     </section>
 
-    <section class="card">
+    <section id="headers-section" class="card">
   <h2>Header</h2>
-      <pre id="headers">Authorization: Bearer &lt;JWT_TOKEN&gt;
+      <pre id="headersSpec">Authorization: Bearer &lt;JWT_TOKEN&gt;
 Content-Type: application/json
 
 Untuk unggah file gunakan multipart/form-data</pre>
@@ -447,17 +820,55 @@ Untuk unggah file gunakan multipart/form-data</pre>
 2) Admin/Teacher create registration code (4-6 digit)
 3) User register menggunakan registration_code -> role mengikuti target_role kode
 4) Teacher create module -> dapat enroll_key + 3 sesi default
-5) Teacher isi konten sesi (url/text/file)
-6) Student enroll pakai enroll_key
-7) Student baca module, sesi, dan file konten yang sudah diakses
-8) Jika perlu, user logout agar token saat ini tidak bisa dipakai lagi</pre>
+5) Teacher (opsional) atur jadwal buka sesi via open_at
+6) Teacher isi konten sesi (url/text/file)
+7) Student enroll pakai enroll_key
+8) Student baca module, sesi, dan file konten yang sudah dibuka sesuai jadwal
+9) Jika perlu, user logout agar token saat ini tidak bisa dipakai lagi</pre>
     </section>
-  </main>
+    </main>
+  </div>
 
   <script>
     (function () {
       const baseUrl = document.getElementById('baseUrl');
+      const menuToggle = document.getElementById('menuToggle');
+      const navBackdrop = document.getElementById('navBackdrop');
+      const menuLinks = document.querySelectorAll('.sidebar .menu a');
+
+      const closeMenu = function () {
+        document.body.classList.remove('nav-open');
+        if (menuToggle) {
+          menuToggle.setAttribute('aria-expanded', 'false');
+        }
+      };
+
+      const toggleMenu = function () {
+        const isOpen = document.body.classList.toggle('nav-open');
+        if (menuToggle) {
+          menuToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        }
+      };
+
       baseUrl.textContent = window.location.origin;
+
+      if (menuToggle) {
+        menuToggle.addEventListener('click', toggleMenu);
+      }
+
+      if (navBackdrop) {
+        navBackdrop.addEventListener('click', closeMenu);
+      }
+
+      for (const link of menuLinks) {
+        link.addEventListener('click', closeMenu);
+      }
+
+      window.addEventListener('resize', function () {
+        if (window.innerWidth > 980) {
+          closeMenu();
+        }
+      });
     })();
   </script>
 </body>

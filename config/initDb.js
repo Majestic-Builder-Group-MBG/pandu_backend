@@ -32,13 +32,29 @@ const initializeDatabase = async () => {
       id INT AUTO_INCREMENT PRIMARY KEY,
       module_id INT NOT NULL,
       title VARCHAR(255) NOT NULL,
-      description TEXT NULL,
       sort_order INT NOT NULL DEFAULT 1,
+      open_at DATETIME NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       CONSTRAINT fk_sessions_module FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE
     ) ENGINE=InnoDB;
   `);
+
+  try {
+    await db.query('ALTER TABLE module_sessions ADD COLUMN open_at DATETIME NULL');
+  } catch (error) {
+    if (error.code !== 'ER_DUP_FIELDNAME') {
+      throw error;
+    }
+  }
+
+  try {
+    await db.query('ALTER TABLE module_sessions DROP COLUMN description');
+  } catch (error) {
+    if (error.code !== 'ER_CANT_DROP_FIELD_OR_KEY') {
+      throw error;
+    }
+  }
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS module_enrollments (
