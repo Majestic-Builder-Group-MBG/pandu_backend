@@ -326,6 +326,10 @@
         <ul class="menu">
           <li><a href="#modules">Module</a></li>
           <li><a href="#sessions">Sesi & Konten</a></li>
+          <li><a href="#dashboard">Dashboard</a></li>
+          <li><a href="#reminders">Reminders</a></li>
+          <li><a href="#push">Push</a></li>
+          <li><a href="#quiz">Quiz Sesi</a></li>
           <li><a href="#public-view">Public View URL</a></li>
           <li><a href="#enrollments">Enrollment</a></li>
         </ul>
@@ -335,7 +339,7 @@
     <main class="wrap">
     <section id="overview" class="card hero">
       <h1>Dokumentasi API Pandu Backend</h1>
-      <div class="meta">Fokus backend: Auth + Kode Registrasi + Modul + Sesi + Enrollment (berdasarkan peran)</div>
+      <div class="meta">Fokus backend: Auth + Kode Registrasi + Modul + Sesi + Quiz + Enrollment (berdasarkan peran)</div>
       <div class="row">
         <span class="section-label">BASIC URL</span>
         <code id="baseUrl"></code>
@@ -344,14 +348,6 @@
       <div class="meta"><b>API create module:</b> <code>POST /api/modules</code> (teacher/admin)</div>
       <div class="meta">Lokasi file konten: <code>storage/modules/{moduleId}/sessions/{sessionId}</code></div>
       <div class="meta">Lokasi file banner: <code>storage/modules/{moduleId}/banner</code></div>
-
-      <h3>Environment Variables (Opsional)</h3>
-      <pre>SESSION_CONTENT_VIEW_TOKEN_SECRET=secret-khusus-view-url
-SESSION_CONTENT_VIEW_TOKEN_TTL_SECONDS=120
-
-Catatan:
-- Jika SESSION_CONTENT_VIEW_TOKEN_SECRET kosong, backend fallback ke JWT_SECRET
-- TTL default public view URL adalah 120 detik</pre>
     </section>
 
     <section id="auth" class="card">
@@ -411,10 +407,14 @@ Catatan:
 
       <pre id="registrationCodeList">POST /api/auth/register-codes                 (admin/teacher)
 GET /api/auth/register-codes                  (admin/teacher)
+GET /api/auth/register-codes/summary          (admin/teacher)
 GET /api/auth/register-codes/:codeId/usages   (admin/teacher)
 PATCH /api/auth/register-codes/:codeId/revoke (admin/teacher)
 PATCH /api/auth/register-codes/expired/archive (admin/teacher)
 DELETE /api/auth/register-codes/expired       (admin/teacher)</pre>
+
+      <div class="meta">Endpoint list kode/usages sudah mendukung metadata list standar: <code>meta.page</code>, <code>meta.per_page</code>, <code>meta.total</code>, <code>meta.total_pages</code>.</div>
+      <div class="meta">Setiap item list kode menyertakan <code>capabilities</code> agar frontend tidak menebak izin aksi.</div>
 
       <h3>Body Create Kode Registrasi</h3>
       <pre>{
@@ -442,6 +442,23 @@ DELETE /api/auth/register-codes/expired       (admin/teacher)</pre>
 curl -X GET "{{BASE_URL}}/api/auth/register-codes/12/usages" \
   -H "Authorization: Bearer JWT_TOKEN_TEACHER"</pre>
 
+      <h3>Contoh Summary Kode Registrasi</h3>
+      <pre>curl -X GET "{{BASE_URL}}/api/auth/register-codes/summary" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER"
+
+# contoh response
+{
+  "success": true,
+  "data": {
+    "total_codes": 12,
+    "active_codes": 7,
+    "expired_codes": 2,
+    "used_codes": 5,
+    "used_up_codes": 1,
+    "remaining_uses_total": 63
+  }
+}</pre>
+
       <h3>Contoh Nonaktifkan Kode</h3>
       <pre>curl -X PATCH "{{BASE_URL}}/api/auth/register-codes/12/revoke" \
   -H "Authorization: Bearer JWT_TOKEN_TEACHER"</pre>
@@ -468,6 +485,9 @@ curl -X DELETE "{{BASE_URL}}/api/auth/register-codes/expired" \
     PUT /api/modules/:moduleId           (teacher/admin pemilik modul)
     DELETE /api/modules/:moduleId        (teacher/admin pemilik modul)
     PATCH /api/modules/:moduleId/regenerate-enroll-key (teacher/admin pemilik modul)</pre>
+
+      <div class="meta">List modul (<code>GET /api/modules</code>) memakai shape standar list: <code>{ success, data, meta }</code>.</div>
+      <div class="meta">Setiap modul menyertakan <code>capabilities</code> (mis: <code>can_edit</code>, <code>can_delete</code>, <code>can_manage_sessions</code>).</div>
 
       <h3>Field Multipart Buat Modul</h3>
       <pre id="moduleCreateFields">name: string (wajib)
@@ -557,8 +577,12 @@ curl -X DELETE "{{BASE_URL}}/api/modules/12" \
       <pre id="sessionList">GET /api/modules/:moduleId/sessions
 POST /api/modules/:moduleId/sessions                 (teacher/admin)
 PUT /api/modules/:moduleId/sessions/:sessionId       (teacher/admin)
+DELETE /api/modules/:moduleId/sessions/:sessionId    (teacher/admin)
 GET /api/modules/:moduleId/sessions/:sessionId/schedule
 PATCH /api/modules/:moduleId/sessions/:sessionId/schedule (teacher/admin)
+GET /api/modules/:moduleId/sessions/:sessionId/reminder
+PUT /api/modules/:moduleId/sessions/:sessionId/reminder
+DELETE /api/modules/:moduleId/sessions/:sessionId/reminder
 
 GET /api/modules/:moduleId/sessions/:sessionId/contents
 GET /api/modules/:moduleId/sessions/:sessionId/contents/:contentId/file
@@ -570,6 +594,8 @@ DELETE /api/modules/:moduleId/sessions/:sessionId/contents/:contentId (teacher/a
       <div class="meta ok">Jadwal sesi default kosong (open_at = null) saat module/sesi dibuat.</div>
       <div class="meta warn">Jika open_at di masa depan, student tidak bisa membaca konten sesi/file sampai waktu tersebut.</div>
       <div class="meta">Untuk mendapatkan <b>contentId</b>, ambil dari endpoint <code>GET /api/modules/:moduleId/sessions/:sessionId/contents</code> pada field <code>id</code>.</div>
+      <div class="meta">Status endpoint delete sesi: <b>tersedia</b> di <code>DELETE /api/modules/:moduleId/sessions/:sessionId</code>.</div>
+      <div class="meta">List sesi & konten juga menyertakan <code>meta</code> pagination dan <code>capabilities</code> per item.</div>
 
   <h3>Payload Tambah Konten Sesi</h3>
   <pre id="sessionContentPayload">content_type: file | url | text (wajib)
@@ -606,6 +632,10 @@ Catatan frontend:
     "sort_order": 2
   }'</pre>
       <div class="meta warn">Validasi: <code>sort_order</code> harus angka bulat lebih dari 0.</div>
+
+      <h3>Contoh Delete Sesi</h3>
+      <pre>curl -X DELETE "{{BASE_URL}}/api/modules/12/sessions/33" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER"</pre>
 
       <h3>Contoh Atur Jadwal Sesi</h3>
       <pre># Set jadwal buka sesi
@@ -785,9 +815,262 @@ GET {{BASE_URL}}/public/session-contents/view?token=eyJ...</pre>
 }</pre>
     </section>
 
+    <section id="dashboard" class="card">
+      <h2>Endpoint Dashboard</h2>
+      <div class="meta ok">Role-aware: admin lihat semua, teacher lihat sesi modul miliknya, student lihat sesi modul yang di-enroll.</div>
+      <pre>GET /api/dashboard/upcoming-sessions</pre>
+
+      <h3>Contoh Upcoming Sessions</h3>
+      <pre>curl -X GET "{{BASE_URL}}/api/dashboard/upcoming-sessions?page=1&per_page=10" \
+  -H "Authorization: Bearer JWT_TOKEN_STUDENT"</pre>
+
+      <h3>Contoh Response</h3>
+      <pre>{
+  "success": true,
+  "data": [
+    {
+      "session_id": 33,
+      "module_id": 12,
+      "module_name": "Matematika Dasar",
+      "teacher_name": "Guru A",
+      "title": "Sesi Turunan",
+      "open_at": "2026-05-01T08:00:00.000Z",
+      "quiz": {
+        "exists": true,
+        "is_published": true
+      },
+      "capabilities": {
+        "can_view": true,
+        "can_edit": false,
+        "can_delete": false,
+        "can_manage_schedule": false,
+        "can_manage_quiz": false
+      }
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "per_page": 10,
+    "total": 4,
+    "total_pages": 1,
+    "count": 4
+  }
+}</pre>
+    </section>
+
+    <section id="reminders" class="card">
+      <h2>Endpoint Reminders</h2>
+      <div class="meta ok">Reminder sesi saat ini untuk role <b>student</b> dengan channel <code>in_app</code>.</div>
+
+      <pre>GET /api/modules/:moduleId/sessions/:sessionId/reminder
+PUT /api/modules/:moduleId/sessions/:sessionId/reminder
+DELETE /api/modules/:moduleId/sessions/:sessionId/reminder
+
+GET /api/reminders/me</pre>
+
+      <h3>Payload Upsert Reminder</h3>
+      <pre>{
+  "enabled": true,
+  "channel": "in_app",
+  "notify_before_minutes": 15
+}</pre>
+
+      <h3>Contoh Set Reminder Sesi</h3>
+      <pre>curl -X PUT "{{BASE_URL}}/api/modules/12/sessions/33/reminder" \
+  -H "Authorization: Bearer JWT_TOKEN_STUDENT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "enabled": true,
+    "channel": "in_app",
+    "notify_before_minutes": 15
+  }'</pre>
+
+      <h3>Contoh Ambil Reminder Sesi</h3>
+      <pre>curl -X GET "{{BASE_URL}}/api/modules/12/sessions/33/reminder" \
+  -H "Authorization: Bearer JWT_TOKEN_STUDENT"</pre>
+
+      <h3>Contoh Hapus Reminder Sesi</h3>
+      <pre>curl -X DELETE "{{BASE_URL}}/api/modules/12/sessions/33/reminder" \
+  -H "Authorization: Bearer JWT_TOKEN_STUDENT"</pre>
+
+      <h3>Contoh List Reminder Saya</h3>
+      <pre>curl -X GET "{{BASE_URL}}/api/reminders/me?page=1&per_page=10" \
+  -H "Authorization: Bearer JWT_TOKEN_STUDENT"</pre>
+
+      <div class="meta">Dispatcher reminder berjalan otomatis di backend. Kontrol env:
+        <code>REMINDER_DISPATCH_ENABLED=true|false</code> dan
+        <code>REMINDER_DISPATCH_INTERVAL_MS=60000</code>.</div>
+      <div class="meta">Untuk Web Push, set env VAPID: <code>VAPID_PUBLIC_KEY</code>, <code>VAPID_PRIVATE_KEY</code>, <code>VAPID_SUBJECT</code>.</div>
+    </section>
+
+    <section id="push" class="card">
+      <h2>Endpoint Push Subscriptions</h2>
+      <div class="meta ok">Menyimpan subscription browser per user (multi-device) untuk notifikasi push reminder sesi.</div>
+
+      <pre>POST /api/push/subscriptions
+DELETE /api/push/subscriptions
+GET /api/push/subscriptions/me</pre>
+
+      <h3>Contoh Simpan Subscription</h3>
+      <pre>curl -X POST "{{BASE_URL}}/api/push/subscriptions" \
+  -H "Authorization: Bearer JWT_TOKEN_STUDENT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "subscription": {
+      "endpoint": "https://fcm.googleapis.com/fcm/send/xxxx",
+      "keys": {
+        "p256dh": "BASE64_P256DH",
+        "auth": "BASE64_AUTH"
+      }
+    },
+    "platform": "chrome-desktop",
+    "user_agent": "Mozilla/5.0 ..."
+  }'</pre>
+
+      <h3>Contoh Hapus Subscription</h3>
+      <pre>curl -X DELETE "{{BASE_URL}}/api/push/subscriptions" \
+  -H "Authorization: Bearer JWT_TOKEN_STUDENT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "endpoint": "https://fcm.googleapis.com/fcm/send/xxxx"
+  }'</pre>
+
+      <h3>Contoh List Subscription Saya</h3>
+      <pre>curl -X GET "{{BASE_URL}}/api/push/subscriptions/me?page=1&per_page=10" \
+  -H "Authorization: Bearer JWT_TOKEN_STUDENT"</pre>
+
+      <h3>Payload Push dari Dispatcher Reminder</h3>
+      <pre>{
+  "title": "Sesi sudah dibuka",
+  "body": "Session 4 di Modul X sekarang tersedia.",
+  "url": "/courses/12?sessionId=33",
+  "tag": "session-open-12-33",
+  "icon": "/pwa-icon-192.png"
+}</pre>
+    </section>
+
+    <section id="quiz" class="card">
+      <h2>Endpoint Quiz Per Sesi</h2>
+      <div class="meta ok">Struktur: module -> session -> quiz (1 quiz per sesi)</div>
+      <div class="meta ok">Tipe soal didukung: <b>mcq</b> dan <b>essay</b></div>
+      <div class="meta warn">MCQ dinilai otomatis sistem, Essay dinilai manual oleh teacher/admin.</div>
+
+      <pre>GET /api/modules/:moduleId/sessions/:sessionId/quiz
+POST /api/modules/:moduleId/sessions/:sessionId/quiz                    (teacher/admin, multipart)
+PUT /api/modules/:moduleId/sessions/:sessionId/quiz                     (teacher/admin, multipart)
+PATCH /api/modules/:moduleId/sessions/:sessionId/quiz/publish           (teacher/admin)
+GET /api/modules/:moduleId/sessions/:sessionId/quiz/banner
+
+POST /api/modules/:moduleId/sessions/:sessionId/quiz/questions           (teacher/admin, multipart)
+PUT /api/modules/:moduleId/sessions/:sessionId/quiz/questions/:questionId (teacher/admin, multipart)
+DELETE /api/modules/:moduleId/sessions/:sessionId/quiz/questions/:questionId (teacher/admin)
+GET /api/modules/:moduleId/sessions/:sessionId/quiz/questions/:questionId/media
+
+POST /api/modules/:moduleId/sessions/:sessionId/quiz/start               (student)
+POST /api/modules/:moduleId/sessions/:sessionId/quiz/submit              (student)
+
+GET /api/modules/:moduleId/sessions/:sessionId/quiz/attempts             (teacher/admin)
+GET /api/modules/:moduleId/sessions/:sessionId/quiz/attempts/:attemptId  (teacher/admin)
+PATCH /api/modules/:moduleId/sessions/:sessionId/quiz/attempts/:attemptId/review (teacher/admin)</pre>
+
+      <h3>Payload Create/Update Quiz (multipart)</h3>
+      <pre>title: string (wajib saat create)
+description: string (opsional)
+banner: file (opsional, image/video/pdf sesuai filter backend)
+remove_banner: boolean (opsional, untuk hapus banner saat update)
+duration_minutes: integer 1..480
+max_attempts: integer 1..50
+passing_score: number 0..100</pre>
+
+      <h3>Contoh Create Quiz</h3>
+      <pre>curl -X POST "{{BASE_URL}}/api/modules/12/sessions/33/quiz" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -F "title=Quiz Sesi Turunan" \
+  -F "description=Evaluasi pemahaman turunan dasar" \
+  -F "duration_minutes=30" \
+  -F "max_attempts=2" \
+  -F "passing_score=75" \
+  -F "banner=@C:/path/quiz-banner.jpg"</pre>
+
+      <h3>Contoh Tambah Soal MCQ (dengan media opsional)</h3>
+      <pre>curl -X POST "{{BASE_URL}}/api/modules/12/sessions/33/quiz/questions" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -F "question_type=mcq" \
+  -F "question_text=Hasil turunan x^2 adalah..." \
+  -F "points=10" \
+  -F "options=[{\"option_text\":\"2x\",\"is_correct\":true},{\"option_text\":\"x\",\"is_correct\":false}]" \
+  -F "media=@C:/path/soal-1.png"</pre>
+
+      <h3>Contoh Tambah Soal Essay</h3>
+      <pre>curl -X POST "{{BASE_URL}}/api/modules/12/sessions/33/quiz/questions" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -F "question_type=essay" \
+  -F "question_text=Jelaskan konsep turunan dalam 3-5 kalimat" \
+  -F "points=20"</pre>
+
+      <h3>Contoh Publish Quiz</h3>
+      <pre>curl -X PATCH "{{BASE_URL}}/api/modules/12/sessions/33/quiz/publish" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "is_published": true
+  }'</pre>
+
+      <h3>Contoh Student Start + Submit Quiz</h3>
+      <pre># Start attempt (mendapat started_at, expires_at, remaining_seconds)
+curl -X POST "{{BASE_URL}}/api/modules/12/sessions/33/quiz/start" \
+  -H "Authorization: Bearer JWT_TOKEN_STUDENT"
+
+# Submit jawaban
+curl -X POST "{{BASE_URL}}/api/modules/12/sessions/33/quiz/submit" \
+  -H "Authorization: Bearer JWT_TOKEN_STUDENT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "attempt_id": 101,
+    "answers": [
+      { "question_id": 501, "selected_option_id": 9001 },
+      { "question_id": 502, "essay_answer": "Turunan adalah laju perubahan..." }
+    ]
+  }'</pre>
+
+      <h3>Contoh Review Essay oleh Teacher/Admin</h3>
+      <pre>curl -X PATCH "{{BASE_URL}}/api/modules/12/sessions/33/quiz/attempts/101/review" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reviews": [
+      {
+        "question_id": 502,
+        "manual_points": 18,
+        "reviewer_feedback": "Penjelasan sudah bagus, tambahkan contoh konkret"
+      }
+    ]
+  }'</pre>
+
+      <h3>Contoh Error Quiz</h3>
+      <pre># 400 - publish ditolak karena MCQ belum valid
+{
+  "success": false,
+  "message": "Quiz tidak bisa dipublish. Pastikan semua soal MCQ memiliki minimal 2 opsi dan minimal 1 jawaban benar"
+}
+
+# 403 - student akses quiz yang belum publish
+{
+  "success": false,
+  "message": "Quiz belum dipublish oleh pengampu module"
+}
+
+# 409 - submit attempt yang sudah pernah disubmit
+{
+  "success": false,
+  "message": "Attempt quiz ini sudah disubmit sebelumnya"
+}</pre>
+    </section>
+
     <section id="enrollments" class="card">
   <h2>Endpoint Enrollment</h2>
       <div class="meta warn">Hanya role student yang boleh enroll via key</div>
+      <div class="meta">List enrollment (<code>GET /api/enrollments/me</code>) menggunakan shape <code>{ success, data, meta }</code> dan menyertakan <code>capabilities</code> per item.</div>
       <pre id="enrollmentList">POST /api/enrollments/enroll
 Bodi:
 {
@@ -815,6 +1098,23 @@ Content-Type: application/json
 
 Untuk unggah file gunakan multipart/form-data</pre>
 
+      <h3>Standar Response List</h3>
+      <pre>{
+  "success": true,
+  "data": [...],
+  "meta": {
+    "page": 1,
+    "per_page": 10,
+    "total": 125,
+    "total_pages": 13,
+    "count": 10
+  }
+}
+
+Query pagination opsional:
+- page=<angka>
+- per_page=<angka></pre>
+
       <h3>Alur Cepat End-to-End</h3>
       <pre>1) Admin/Teacher login -> dapat token
 2) Admin/Teacher create registration code (4-6 digit)
@@ -822,9 +1122,11 @@ Untuk unggah file gunakan multipart/form-data</pre>
 4) Teacher create module -> dapat enroll_key + 3 sesi default
 5) Teacher (opsional) atur jadwal buka sesi via open_at
 6) Teacher isi konten sesi (url/text/file)
-7) Student enroll pakai enroll_key
-8) Student baca module, sesi, dan file konten yang sudah dibuka sesuai jadwal
-9) Jika perlu, user logout agar token saat ini tidak bisa dipakai lagi</pre>
+7) Teacher buat quiz per sesi + tambah soal MCQ/Essay + publish
+8) Student enroll pakai enroll_key
+9) Student baca module, kerjakan quiz sesi (start -> submit)
+10) Sistem auto-nilai MCQ, Teacher/Admin review Essay
+11) Jika perlu, user logout agar token saat ini tidak bisa dipakai lagi</pre>
     </section>
     </main>
   </div>

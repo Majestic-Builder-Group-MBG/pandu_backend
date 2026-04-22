@@ -185,6 +185,33 @@ class RegistrationCodeService {
     return rows;
   }
 
+  async getSummary(requester) {
+    const { whereSql, params } = this.buildListWhereClause(requester);
+
+    const [rows] = await db.query(
+      `SELECT
+         COUNT(*) AS total_codes,
+         SUM(CASE WHEN rc.is_active = 1 AND rc.expires_at >= NOW() AND rc.used_count < rc.max_uses THEN 1 ELSE 0 END) AS active_codes,
+         SUM(CASE WHEN rc.expires_at < NOW() THEN 1 ELSE 0 END) AS expired_codes,
+         SUM(CASE WHEN rc.used_count >= rc.max_uses THEN 1 ELSE 0 END) AS used_up_codes,
+         SUM(CASE WHEN rc.used_count > 0 THEN 1 ELSE 0 END) AS used_codes,
+         SUM(GREATEST(rc.max_uses - rc.used_count, 0)) AS remaining_uses_total
+       FROM registration_codes rc
+       ${whereSql}`,
+      params
+    );
+
+    const summary = rows[0] || {};
+    return {
+      total_codes: Number(summary.total_codes || 0),
+      active_codes: Number(summary.active_codes || 0),
+      expired_codes: Number(summary.expired_codes || 0),
+      used_codes: Number(summary.used_codes || 0),
+      used_up_codes: Number(summary.used_up_codes || 0),
+      remaining_uses_total: Number(summary.remaining_uses_total || 0)
+    };
+  }
+
   buildManageScope(requester) {
     if (requester.role === ROLE_ADMIN) {
       return {

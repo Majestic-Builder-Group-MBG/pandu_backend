@@ -1,30 +1,89 @@
+const { getRedisClient, isUsingRedis } = require('../config/redis');
+
+const inMemoryBuckets = new Map();
+let redisFailureLogged = false;
+
+const getClientIp = (req) => req.ip || req.socket.remoteAddress || 'unknown';
+
+const inMemoryCheck = ({ key, nowMs, windowMs, maxRequests }) => {
+  const current = inMemoryBuckets.get(key);
+
+  if (!current || nowMs > current.resetAt) {
+    inMemoryBuckets.set(key, {
+      count: 1,
+      resetAt: nowMs + windowMs
+    });
+    return false;
+  }
+
+  if (current.count >= maxRequests) {
+    return true;
+  }
+
+  current.count += 1;
+  inMemoryBuckets.set(key, current);
+  return false;
+};
+
+const redisCheck = async ({ redisClient, key, windowMs, maxRequests }) => {
+  const count = await redisClient.incr(key);
+  if (count === 1) {
+    await redisClient.pexpire(key, windowMs);
+  }
+
+  return count > maxRequests;
+};
+
 const createRateLimiter = ({ windowMs, maxRequests, message, keyPrefix }) => {
-  const bucket = new Map();
-
-  return (req, res, next) => {
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    const key = `${keyPrefix}:${ip}`;
-    const now = Date.now();
-
-    const current = bucket.get(key);
-    if (!current || now > current.resetAt) {
-      bucket.set(key, {
-        count: 1,
-        resetAt: now + windowMs
-      });
+  return async (req, res, next) => {
+    if (!isUsingRedis()) {
       return next();
     }
 
-    if (current.count >= maxRequests) {
-      return res.status(429).json({
-        success: false,
-        message
-      });
-    }
+    const ip = getClientIp(req);
+    const key = `${keyPrefix}:${ip}`;
+    const nowMs = Date.now();
 
-    current.count += 1;
-    bucket.set(key, current);
-    return next();
+    try {
+      const redisClient = await getRedisClient();
+
+      if (redisClient) {
+        const blocked = await redisCheck({ redisClient, key, windowMs, maxRequests });
+        if (blocked) {
+          return res.status(429).json({
+            success: false,
+            message
+          });
+        }
+
+        return next();
+      }
+
+      const blocked = inMemoryCheck({ key, nowMs, windowMs, maxRequests });
+      if (blocked) {
+        return res.status(429).json({
+          success: false,
+          message
+        });
+      }
+
+      return next();
+    } catch (error) {
+      if (!redisFailureLogged) {
+        redisFailureLogged = true;
+        console.warn(`[rate-limit] redis error, fallback memory limiter: ${error.message}`);
+      }
+
+      const blocked = inMemoryCheck({ key, nowMs, windowMs, maxRequests });
+      if (blocked) {
+        return res.status(429).json({
+          success: false,
+          message
+        });
+      }
+
+      return next();
+    }
   };
 };
 

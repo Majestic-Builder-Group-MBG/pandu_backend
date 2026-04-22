@@ -3,33 +3,32 @@ const path = require('path');
 const crypto = require('crypto');
 const db = require('../config/db');
 const { sessionContentViewTokenService } = require('../services/sessionContentViewTokenService');
+const { buildListResponse } = require('../utils/listResponse');
+const { moduleStorageService } = require('../services/module/moduleStorageService');
+const { moduleAccessService } = require('../services/module/moduleAccessService');
+const { sessionContentService } = require('../services/module/sessionContentService');
 
-const storageRoot = path.join(__dirname, '..', 'storage');
+const removeFileSafe = (filePath) => moduleStorageService.removeFileSafe(filePath);
+const moduleFolder = (moduleId) => moduleStorageService.moduleFolder(moduleId);
+const sessionFolder = (moduleId, sessionId) => moduleStorageService.sessionFolder(moduleId, sessionId);
+const moveTempFileTo = (tempPath, targetDir) => moduleStorageService.moveTempFileTo(tempPath, targetDir);
+const toRelativeStoragePath = (absPath) => moduleStorageService.toRelativeStoragePath(absPath);
+const toAbsolutePath = (relativePath) => moduleStorageService.toAbsolutePath(relativePath);
 
-const ensureDir = (dirPath) => {
-  fs.mkdirSync(dirPath, { recursive: true });
-};
+const canManageModule = async (user, moduleId) => moduleAccessService.canManageModule(user, moduleId);
+const canReadModule = async (user, moduleId) => moduleAccessService.canReadModule(user, moduleId);
+const getSessionByModule = async (moduleId, sessionId) => moduleAccessService.getSessionByModule(moduleId, sessionId);
+const isSessionLockedForStudent = (user, sessionRow) => moduleAccessService.isSessionLockedForStudent(user, sessionRow);
 
-const removeFileSafe = (filePath) => {
-  if (filePath && fs.existsSync(filePath)) {
-    fs.rmSync(filePath, { force: true });
-  }
-};
-
-const moduleFolder = (moduleId) => path.join(storageRoot, 'modules', String(moduleId));
-const sessionFolder = (moduleId, sessionId) => path.join(moduleFolder(moduleId), 'sessions', String(sessionId));
+const getSessionContentFileByIds = async (moduleId, sessionId, contentId) => (
+  sessionContentService.getSessionContentFileByIds(moduleId, sessionId, contentId)
+);
+const isDirectPublicViewAllowed = (mimeType) => sessionContentService.isDirectPublicViewAllowed(mimeType);
+const buildSessionContentResponse = (contentRow, moduleId, sessionId) => (
+  sessionContentService.buildSessionContentResponse(contentRow, moduleId, sessionId)
+);
 
 const generateEnrollKey = () => crypto.randomBytes(6).toString('hex').toUpperCase();
-
-const moveTempFileTo = (tempPath, targetDir) => {
-  ensureDir(targetDir);
-  const fileName = path.basename(tempPath);
-  const finalPath = path.join(targetDir, fileName);
-  fs.renameSync(tempPath, finalPath);
-  return finalPath;
-};
-
-const toRelativeStoragePath = (absPath) => path.relative(path.join(__dirname, '..'), absPath).replace(/\\/g, '/');
 const attachModuleBannerUrl = (moduleRow) => ({
   ...moduleRow,
   banner_download_url: moduleRow && moduleRow.banner_image_path
@@ -37,122 +36,38 @@ const attachModuleBannerUrl = (moduleRow) => ({
     : null
 });
 
-const canManageModule = async (user, moduleId) => {
-  if (user.role === 'admin') return true;
-  if (user.role !== 'teacher') return false;
-
-  const [rows] = await db.query('SELECT id FROM modules WHERE id = ? AND teacher_id = ?', [moduleId, user.id]);
-  return rows.length > 0;
-};
-
-const canReadModule = async (user, moduleId) => {
-  if (user.role === 'admin') return true;
-
-  if (user.role === 'teacher') {
-    const [rows] = await db.query('SELECT id FROM modules WHERE id = ? AND teacher_id = ?', [moduleId, user.id]);
-    return rows.length > 0;
-  }
-
-  const [rows] = await db.query(
-    'SELECT id FROM module_enrollments WHERE module_id = ? AND user_id = ?',
-    [moduleId, user.id]
-  );
-  return rows.length > 0;
-};
-
-const getSessionByModule = async (moduleId, sessionId) => {
-  const [rows] = await db.query(
-    'SELECT id, module_id, open_at FROM module_sessions WHERE id = ? AND module_id = ? LIMIT 1',
-    [sessionId, moduleId]
-  );
-
-  return rows[0] || null;
-};
-
-const isSessionLockedForStudent = (user, sessionRow) => {
-  if (!user || user.role !== 'student') {
-    return false;
-  }
-
-  if (!sessionRow || !sessionRow.open_at) {
-    return false;
-  }
-
-  return new Date(sessionRow.open_at) > new Date();
-};
-
-const getSessionContentFileByIds = async (moduleId, sessionId, contentId) => {
-  const [rows] = await db.query(
-    `SELECT sc.id, sc.file_path, sc.mime_type, ms.open_at
-     FROM session_contents sc
-     JOIN module_sessions ms ON ms.id = sc.session_id
-     WHERE sc.id = ? AND sc.session_id = ? AND ms.module_id = ? AND sc.content_type = 'file'`,
-    [contentId, sessionId, moduleId]
-  );
-
-  return rows[0] || null;
-};
-
-const isDirectPublicViewAllowed = (mimeType) => {
-  const normalizedMimeType = String(mimeType || '').toLowerCase();
-  if (!normalizedMimeType) {
-    return false;
-  }
-
-  if (normalizedMimeType.startsWith('image/')) {
-    return false;
-  }
-
-  if (normalizedMimeType.startsWith('video/')) {
-    return false;
-  }
-
-  return true;
-};
-
-const getFileKind = (mimeType) => {
-  const normalizedMimeType = String(mimeType || '').toLowerCase();
-
-  if (!normalizedMimeType) {
-    return null;
-  }
-
-  if (normalizedMimeType.startsWith('image/')) {
-    return 'image';
-  }
-
-  if (normalizedMimeType.startsWith('video/')) {
-    return 'video';
-  }
-
-  if (normalizedMimeType === 'application/pdf') {
-    return 'document';
-  }
-
-  return 'other';
-};
-
-const buildSessionContentResponse = (contentRow, moduleId, sessionId) => {
-  const fileDownloadUrl = contentRow && contentRow.file_path
-    ? `/api/modules/${moduleId}/sessions/${sessionId}/contents/${contentRow.id}/file`
-    : null;
-
-  const fileKind = contentRow && contentRow.content_type === 'file'
-    ? getFileKind(contentRow.mime_type)
-    : null;
-
-  const isMedia = fileKind === 'image' || fileKind === 'video';
-  const isPublicViewSupported = Boolean(contentRow && contentRow.content_type === 'file' && isDirectPublicViewAllowed(contentRow.mime_type));
+const buildModuleCapabilities = (user, moduleRow) => {
+  const isAdmin = user.role === 'admin';
+  const isOwnerTeacher = user.role === 'teacher' && Number(moduleRow.teacher_id) === Number(user.id);
+  const canManage = isAdmin || isOwnerTeacher;
 
   return {
-    ...contentRow,
-    file_download_url: fileDownloadUrl,
-    file_kind: fileKind,
-    is_media: isMedia,
-    is_public_view_supported: isPublicViewSupported,
-    should_use_public_view_url: isPublicViewSupported
+    can_view: true,
+    can_edit: canManage,
+    can_delete: canManage,
+    can_regenerate_enroll_key: canManage,
+    can_manage_sessions: canManage,
+    can_manage_quiz: canManage,
+    can_enroll: user.role === 'student'
   };
 };
+
+const buildSessionCapabilities = (user, manageable) => ({
+  can_view: true,
+  can_edit: manageable,
+  can_delete: manageable,
+  can_manage_contents: manageable,
+  can_manage_schedule: manageable,
+  can_manage_quiz: manageable,
+  can_start_quiz: user.role === 'student'
+});
+
+const buildSessionContentCapabilities = (manageable, item) => ({
+  can_view: true,
+  can_edit: manageable,
+  can_delete: manageable,
+  can_generate_public_view_url: Boolean(item && item.is_public_view_supported)
+});
 
 const createModule = async (req, res) => {
   const { name, description = null } = req.body;
@@ -262,8 +177,13 @@ const getModules = async (req, res) => {
       );
     }
 
-    const mappedRows = rows.map((row) => attachModuleBannerUrl(row));
-    return res.json({ success: true, data: mappedRows });
+    const mappedRows = rows.map((row) => ({
+      ...attachModuleBannerUrl(row),
+      capabilities: buildModuleCapabilities(req.user, row)
+    }));
+
+    const { data, meta } = buildListResponse(mappedRows, req.query);
+    return res.json({ success: true, data, meta });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Gagal mengambil daftar module', error: error.message });
   }
@@ -296,7 +216,15 @@ const getModuleById = async (req, res) => {
       [moduleId]
     );
 
-    const data = { ...attachModuleBannerUrl(moduleRows[0]), sessions };
+    const manageable = await canManageModule(req.user, moduleId);
+    const data = {
+      ...attachModuleBannerUrl(moduleRows[0]),
+      capabilities: buildModuleCapabilities(req.user, moduleRows[0]),
+      sessions: sessions.map((session) => ({
+        ...session,
+        capabilities: buildSessionCapabilities(req.user, manageable)
+      }))
+    };
     if (req.user.role === 'student') {
       delete data.enroll_key;
     }
@@ -332,7 +260,7 @@ const updateModule = async (req, res) => {
       nextBannerPath = toRelativeStoragePath(movedPath);
 
       if (moduleRows[0].banner_image_path) {
-        removeFileSafe(path.join(__dirname, '..', moduleRows[0].banner_image_path));
+        removeFileSafe(toAbsolutePath(moduleRows[0].banner_image_path));
       }
     }
 
@@ -424,7 +352,7 @@ const downloadModuleBanner = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Banner module belum tersedia' });
     }
 
-    const absolutePath = path.join(__dirname, '..', rows[0].banner_image_path);
+    const absolutePath = toAbsolutePath(rows[0].banner_image_path);
     if (!fs.existsSync(absolutePath)) {
       return res.status(404).json({ success: false, message: 'File banner tidak ditemukan di storage' });
     }
@@ -489,8 +417,14 @@ const getModuleSessions = async (req, res) => {
       'SELECT id, module_id, title, sort_order, open_at, created_at, updated_at FROM module_sessions WHERE module_id = ? ORDER BY sort_order ASC, id ASC',
       [moduleId]
     );
+    const manageable = await canManageModule(req.user, moduleId);
+    const mapped = sessions.map((session) => ({
+      ...session,
+      capabilities: buildSessionCapabilities(req.user, manageable)
+    }));
 
-    return res.json({ success: true, data: sessions });
+    const { data, meta } = buildListResponse(mapped, req.query);
+    return res.json({ success: true, data, meta });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Gagal mengambil sesi module', error: error.message });
   }
@@ -578,6 +512,30 @@ const updateSession = async (req, res) => {
     return res.json({ success: true, message: 'Sesi berhasil diperbarui', data: updatedRows[0] });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Gagal update sesi', error: error.message });
+  }
+};
+
+const deleteSession = async (req, res) => {
+  const moduleId = Number(req.params.moduleId);
+  const sessionId = Number(req.params.sessionId);
+
+  try {
+    const manageable = await canManageModule(req.user, moduleId);
+    if (!manageable) {
+      return res.status(403).json({ success: false, message: 'Tidak memiliki akses hapus sesi' });
+    }
+
+    const [rows] = await db.query('SELECT id FROM module_sessions WHERE id = ? AND module_id = ?', [sessionId, moduleId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Sesi tidak ditemukan pada module ini' });
+    }
+
+    await db.query('DELETE FROM module_sessions WHERE id = ?', [sessionId]);
+    fs.rmSync(sessionFolder(moduleId, sessionId), { recursive: true, force: true });
+
+    return res.json({ success: true, message: 'Sesi berhasil dihapus' });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Gagal menghapus sesi', error: error.message });
   }
 };
 
@@ -749,7 +707,7 @@ const viewSessionContentFileByToken = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Sesi ini belum dibuka sesuai jadwal' });
     }
 
-    const absolutePath = path.join(__dirname, '..', contentFile.file_path);
+    const absolutePath = toAbsolutePath(contentFile.file_path);
     if (!fs.existsSync(absolutePath)) {
       return res.status(404).json({ success: false, message: 'File tidak ditemukan di storage' });
     }
@@ -933,14 +891,14 @@ const updateSessionContent = async (req, res) => {
 
     if (nextContentType === 'url' && !normalizedUrlInput) {
       if (movedNewFileRelativePath) {
-        removeFileSafe(path.join(__dirname, '..', movedNewFileRelativePath));
+        removeFileSafe(toAbsolutePath(movedNewFileRelativePath));
       }
       return res.status(400).json({ success: false, message: 'URL wajib diisi untuk content_type=url' });
     }
 
     if (nextContentType === 'text' && !normalizedTextContent) {
       if (movedNewFileRelativePath) {
-        removeFileSafe(path.join(__dirname, '..', movedNewFileRelativePath));
+        removeFileSafe(toAbsolutePath(movedNewFileRelativePath));
       }
       return res.status(400).json({ success: false, message: 'text_content wajib diisi untuk content_type=text' });
     }
@@ -968,7 +926,7 @@ const updateSessionContent = async (req, res) => {
     );
 
     if (shouldDeleteOldFile && existingContent.file_path) {
-      removeFileSafe(path.join(__dirname, '..', existingContent.file_path));
+      removeFileSafe(toAbsolutePath(existingContent.file_path));
     }
 
     const [updatedRows] = await db.query(
@@ -986,7 +944,7 @@ const updateSessionContent = async (req, res) => {
     }
 
     if (movedNewFileRelativePath) {
-      removeFileSafe(path.join(__dirname, '..', movedNewFileRelativePath));
+      removeFileSafe(toAbsolutePath(movedNewFileRelativePath));
     }
 
     return res.status(500).json({ success: false, message: 'Gagal memperbarui konten sesi', error: error.message });
@@ -1017,9 +975,17 @@ const getSessionContents = async (req, res) => {
       [sessionId]
     );
 
-    const data = rows.map((item) => buildSessionContentResponse(item, moduleId, sessionId));
+    const manageable = await canManageModule(req.user, moduleId);
+    const data = rows.map((item) => {
+      const mappedItem = buildSessionContentResponse(item, moduleId, sessionId);
+      return {
+        ...mappedItem,
+        capabilities: buildSessionContentCapabilities(manageable, mappedItem)
+      };
+    });
 
-    return res.json({ success: true, data });
+    const list = buildListResponse(data, req.query);
+    return res.json({ success: true, data: list.data, meta: list.meta });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Gagal mengambil konten sesi', error: error.message });
   }
@@ -1046,7 +1012,7 @@ const downloadSessionContentFile = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Sesi ini belum dibuka sesuai jadwal' });
     }
 
-    const absolutePath = path.join(__dirname, '..', contentFile.file_path);
+    const absolutePath = toAbsolutePath(contentFile.file_path);
     if (!fs.existsSync(absolutePath)) {
       return res.status(404).json({ success: false, message: 'File tidak ditemukan di storage' });
     }
@@ -1083,7 +1049,7 @@ const deleteSessionContent = async (req, res) => {
     await db.query('DELETE FROM session_contents WHERE id = ?', [contentId]);
 
     if (rows[0].file_path) {
-      removeFileSafe(path.join(__dirname, '..', rows[0].file_path));
+      removeFileSafe(toAbsolutePath(rows[0].file_path));
     }
 
     return res.json({ success: true, message: 'Konten sesi berhasil dihapus' });
@@ -1103,6 +1069,7 @@ module.exports = {
   getModuleSessions,
   createSession,
   updateSession,
+  deleteSession,
   getSessionSchedule,
   updateSessionSchedule,
   createSessionContentViewUrl,

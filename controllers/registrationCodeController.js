@@ -1,4 +1,5 @@
 const { registrationCodeService } = require('../services/registrationCodeService');
+const { buildListResponse } = require('../utils/listResponse');
 
 const createRegistrationCode = async (req, res) => {
   try {
@@ -20,10 +21,21 @@ const createRegistrationCode = async (req, res) => {
 const listRegistrationCodes = async (req, res) => {
   try {
     const rows = await registrationCodeService.listCodes(req.user);
+    const mapped = rows.map((row) => ({
+      ...row,
+      capabilities: {
+        can_view: true,
+        can_revoke: true,
+        can_view_usages: true,
+        can_delete_expired: req.user.role === 'admin' || req.user.role === 'teacher'
+      }
+    }));
+    const list = buildListResponse(mapped, req.query);
 
     return res.json({
       success: true,
-      data: rows
+      data: list.data,
+      meta: list.meta
     });
   } catch (error) {
     return res.status(error.status || 500).json({
@@ -53,15 +65,39 @@ const revokeRegistrationCode = async (req, res) => {
 const getRegistrationCodeUsages = async (req, res) => {
   try {
     const rows = await registrationCodeService.listCodeUsages(req.user, req.params.codeId);
+    const mapped = rows.map((row) => ({
+      ...row,
+      capabilities: {
+        can_view: true
+      }
+    }));
+    const list = buildListResponse(mapped, req.query);
 
     return res.json({
       success: true,
-      data: rows
+      data: list.data,
+      meta: list.meta
     });
   } catch (error) {
     return res.status(error.status || 500).json({
       success: false,
       message: error.status ? error.message : 'Gagal mengambil riwayat penggunaan kode'
+    });
+  }
+};
+
+const getRegistrationCodeSummary = async (req, res) => {
+  try {
+    const summary = await registrationCodeService.getSummary(req.user);
+
+    return res.json({
+      success: true,
+      data: summary
+    });
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.status ? error.message : 'Gagal mengambil ringkasan kode registrasi'
     });
   }
 };
@@ -103,6 +139,7 @@ const deleteExpiredRegistrationCodes = async (req, res) => {
 module.exports = {
   createRegistrationCode,
   listRegistrationCodes,
+  getRegistrationCodeSummary,
   revokeRegistrationCode,
   getRegistrationCodeUsages,
   archiveExpiredRegistrationCodes,

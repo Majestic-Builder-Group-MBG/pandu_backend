@@ -8,6 +8,7 @@ const { register, login, logout } = require('../controllers/authController');
 const {
   createRegistrationCode,
   listRegistrationCodes,
+  getRegistrationCodeSummary,
   revokeRegistrationCode,
   getRegistrationCodeUsages,
   archiveExpiredRegistrationCodes,
@@ -20,6 +21,7 @@ router.post('/logout', auth, logout);
 
 router.post('/register-codes', auth, authorize('admin', 'teacher'), codeIssueRateLimiter, createRegistrationCode);
 router.get('/register-codes', auth, authorize('admin', 'teacher'), listRegistrationCodes);
+router.get('/register-codes/summary', auth, authorize('admin', 'teacher'), getRegistrationCodeSummary);
 router.get('/register-codes/:codeId/usages', auth, authorize('admin', 'teacher'), getRegistrationCodeUsages);
 router.patch('/register-codes/:codeId/revoke', auth, authorize('admin', 'teacher'), revokeRegistrationCode);
 router.patch('/register-codes/expired/archive', auth, authorize('admin', 'teacher'), archiveExpiredRegistrationCodes);

@@ -4,12 +4,15 @@ const dotenv = require('dotenv');
 const os = require('os');
 const path = require('path');
 const initializeDatabase = require('./config/initDb');
+const { getRedisMode } = require('./config/redis');
+const { reminderDispatcherService } = require('./services/reminderDispatcherService');
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 const HOST = process.env.HOST || '0.0.0.0';
+const USING_REDIS = String(process.env.USING_REDIS || '').trim().toLowerCase() === 'true';
 
 const getLocalIPv4Addresses = () => {
   const interfaces = os.networkInterfaces();
@@ -35,6 +38,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/modules', require('./routes/moduleRoutes'));
 app.use('/api/enrollments', require('./routes/enrollmentRoutes'));
+app.use('/api/dashboard', require('./routes/dashboardRoutes'));
+app.use('/api/reminders', require('./routes/reminderRoutes'));
+app.use('/api/push', require('./routes/pushRoutes'));
 app.use('/public', require('./routes/publicRoutes'));
 
 // Test route
@@ -67,12 +73,15 @@ const startServer = async () => {
       console.log(`✅ Server running on http://localhost:${PORT}`);
       console.log(`✅ Server running on http://127.0.0.1:${PORT}`);
       console.log(`✅ Network bind: http://${HOST}:${PORT}`);
+      console.log(`✅ Rate limit mode: ${USING_REDIS ? `redis-${getRedisMode()} (aktif)` : 'bypass (USING_REDIS=false)'}`);
 
       if (localIPs.length > 0) {
         for (const ip of localIPs) {
           console.log(`🌐 Akses dari device lain: http://${ip}:${PORT}`);
         }
       }
+
+      reminderDispatcherService.start();
     });
   } catch (error) {
     console.error('❌ Gagal inisialisasi database schema:', error.message);

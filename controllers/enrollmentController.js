@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { buildListResponse } = require('../utils/listResponse');
 
 const enrollByKey = async (req, res) => {
   const { enroll_key } = req.body || {};
@@ -64,7 +65,16 @@ const myEnrollments = async (req, res) => {
       [req.user.id]
     );
 
-    return res.json({ success: true, data: rows });
+    const mapped = rows.map((row) => ({
+      ...row,
+      capabilities: {
+        can_view: true,
+        can_unenroll: false
+      }
+    }));
+
+    const list = buildListResponse(mapped, req.query);
+    return res.json({ success: true, data: list.data, meta: list.meta });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Gagal mengambil enrollment', error: error.message });
   }
