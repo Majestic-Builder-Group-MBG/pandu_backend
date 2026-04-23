@@ -93,6 +93,7 @@ const initializeDatabase = async () => {
       duration_minutes INT NOT NULL DEFAULT 30,
       max_attempts INT NOT NULL DEFAULT 1,
       passing_score DECIMAL(5,2) NOT NULL DEFAULT 70.00,
+      leaderboard_visibility ENUM('private', 'public') NOT NULL DEFAULT 'private',
       is_published TINYINT(1) NOT NULL DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -100,6 +101,14 @@ const initializeDatabase = async () => {
       CONSTRAINT fk_session_quizzes_session FOREIGN KEY (session_id) REFERENCES module_sessions(id) ON DELETE CASCADE
     ) ENGINE=InnoDB;
   `);
+
+  try {
+    await db.query("ALTER TABLE session_quizzes ADD COLUMN leaderboard_visibility ENUM('private', 'public') NOT NULL DEFAULT 'private'");
+  } catch (error) {
+    if (error.code !== 'ER_DUP_FIELDNAME') {
+      throw error;
+    }
+  }
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS quiz_questions (
@@ -142,9 +151,13 @@ const initializeDatabase = async () => {
       expires_at DATETIME NOT NULL,
       submitted_at DATETIME NULL,
       total_points DECIMAL(9,2) NOT NULL DEFAULT 0.00,
+      auto_score_points DECIMAL(9,2) NOT NULL DEFAULT 0.00,
+      manual_score_points DECIMAL(9,2) NOT NULL DEFAULT 0.00,
+      final_score_points DECIMAL(9,2) NOT NULL DEFAULT 0.00,
       auto_score DECIMAL(7,2) NOT NULL DEFAULT 0.00,
       manual_score DECIMAL(7,2) NOT NULL DEFAULT 0.00,
       final_score DECIMAL(7,2) NOT NULL DEFAULT 0.00,
+      final_score_percent DECIMAL(7,2) NOT NULL DEFAULT 0.00,
       passed TINYINT(1) NULL,
       graded_at DATETIME NULL,
       graded_by_user_id INT NULL,
@@ -164,6 +177,8 @@ const initializeDatabase = async () => {
       id INT AUTO_INCREMENT PRIMARY KEY,
       attempt_id INT NOT NULL,
       question_id INT NOT NULL,
+      question_type_snapshot ENUM('mcq', 'essay') NOT NULL,
+      question_points_snapshot DECIMAL(9,2) NOT NULL DEFAULT 0.00,
       selected_option_id INT NULL,
       essay_answer LONGTEXT NULL,
       is_correct TINYINT(1) NULL,
@@ -175,7 +190,6 @@ const initializeDatabase = async () => {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       CONSTRAINT fk_quiz_answers_attempt FOREIGN KEY (attempt_id) REFERENCES quiz_attempts(id) ON DELETE CASCADE,
-      CONSTRAINT fk_quiz_answers_question FOREIGN KEY (question_id) REFERENCES quiz_questions(id) ON DELETE CASCADE,
       CONSTRAINT fk_quiz_answers_option FOREIGN KEY (selected_option_id) REFERENCES quiz_question_options(id) ON DELETE SET NULL,
       CONSTRAINT fk_quiz_answers_reviewer FOREIGN KEY (reviewed_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
       UNIQUE KEY uniq_attempt_question (attempt_id, question_id),
@@ -183,6 +197,108 @@ const initializeDatabase = async () => {
       INDEX idx_quiz_answers_question (question_id)
     ) ENGINE=InnoDB;
   `);
+
+  try {
+    await db.query('ALTER TABLE quiz_attempts ADD COLUMN auto_score_points DECIMAL(9,2) NOT NULL DEFAULT 0.00 AFTER total_points');
+  } catch (error) {
+    if (error.code !== 'ER_DUP_FIELDNAME') {
+      throw error;
+    }
+  }
+
+  try {
+    await db.query('ALTER TABLE quiz_attempts ADD COLUMN manual_score_points DECIMAL(9,2) NOT NULL DEFAULT 0.00 AFTER auto_score_points');
+  } catch (error) {
+    if (error.code !== 'ER_DUP_FIELDNAME') {
+      throw error;
+    }
+  }
+
+  try {
+    await db.query('ALTER TABLE quiz_attempts ADD COLUMN final_score_points DECIMAL(9,2) NOT NULL DEFAULT 0.00 AFTER manual_score_points');
+  } catch (error) {
+    if (error.code !== 'ER_DUP_FIELDNAME') {
+      throw error;
+    }
+  }
+
+  try {
+    await db.query('ALTER TABLE quiz_attempts ADD COLUMN final_score_percent DECIMAL(7,2) NOT NULL DEFAULT 0.00 AFTER final_score');
+  } catch (error) {
+    if (error.code !== 'ER_DUP_FIELDNAME') {
+      throw error;
+    }
+  }
+
+  try {
+    await db.query(
+      `UPDATE quiz_attempts
+       SET auto_score_points = CASE
+         WHEN total_points > 0 THEN ROUND((COALESCE(auto_score, 0) / 100) * total_points, 2)
+         ELSE 0 END,
+           manual_score_points = CASE
+         WHEN total_points > 0 THEN ROUND((COALESCE(manual_score, 0) / 100) * total_points, 2)
+         ELSE 0 END,
+           final_score_points = CASE
+         WHEN total_points > 0 THEN ROUND((COALESCE(final_score, 0) / 100) * total_points, 2)
+         ELSE 0 END,
+           final_score_percent = COALESCE(final_score, 0)
+       WHERE (auto_score_points = 0 AND manual_score_points = 0 AND final_score_points = 0)
+         AND (COALESCE(auto_score, 0) > 0 OR COALESCE(manual_score, 0) > 0 OR COALESCE(final_score, 0) > 0)`
+    );
+  } catch (error) {
+    if (error.code !== 'ER_BAD_FIELD_ERROR') {
+      throw error;
+    }
+  }
+
+  try {
+    await db.query("ALTER TABLE quiz_attempt_answers ADD COLUMN question_type_snapshot ENUM('mcq', 'essay') NULL AFTER question_id");
+  } catch (error) {
+    if (error.code !== 'ER_DUP_FIELDNAME') {
+      throw error;
+    }
+  }
+
+  try {
+    await db.query('ALTER TABLE quiz_attempt_answers ADD COLUMN question_points_snapshot DECIMAL(9,2) NOT NULL DEFAULT 0.00 AFTER question_type_snapshot');
+  } catch (error) {
+    if (error.code !== 'ER_DUP_FIELDNAME') {
+      throw error;
+    }
+  }
+
+  try {
+    await db.query('UPDATE quiz_attempt_answers a JOIN quiz_questions q ON q.id = a.question_id SET a.question_type_snapshot = q.question_type WHERE a.question_type_snapshot IS NULL');
+  } catch (error) {
+    if (error.code !== 'ER_BAD_FIELD_ERROR') {
+      throw error;
+    }
+  }
+
+  try {
+    await db.query('UPDATE quiz_attempt_answers a JOIN quiz_questions q ON q.id = a.question_id SET a.question_points_snapshot = q.points WHERE a.question_points_snapshot = 0');
+  } catch (error) {
+    if (error.code !== 'ER_BAD_FIELD_ERROR') {
+      throw error;
+    }
+  }
+
+  try {
+    await db.query("ALTER TABLE quiz_attempt_answers MODIFY question_type_snapshot ENUM('mcq', 'essay') NOT NULL");
+  } catch (error) {
+    if (error.code !== 'ER_BAD_FIELD_ERROR') {
+      throw error;
+    }
+  }
+
+  try {
+    await db.query('ALTER TABLE quiz_attempt_answers DROP FOREIGN KEY fk_quiz_answers_question');
+  } catch (error) {
+    if (!['ER_CANT_DROP_FIELD_OR_KEY', 'ER_NONEXISTENT_TABLE'].includes(error.code)) {
+      throw error;
+    }
+  }
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS session_reminders (

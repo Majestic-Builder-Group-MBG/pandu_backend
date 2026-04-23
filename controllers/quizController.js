@@ -6,6 +6,7 @@ const { quizAccessService } = require('../services/quiz/quizAccessService');
 const { quizValueService } = require('../services/quiz/quizValueService');
 const { quizStatsService } = require('../services/quiz/quizStatsService');
 const { quizAttemptService } = require('../services/quiz/quizAttemptService');
+const { quizDraftAiService } = require('../services/ai/quizDraftAiService');
 
 const removeFileSafe = (filePath) => quizStorageService.removeFileSafe(filePath);
 const moveTempFileTo = (tempPath, targetDir) => quizStorageService.moveTempFileTo(tempPath, targetDir);
@@ -40,6 +41,294 @@ const getQuestionById = async (quizId, questionId) => {
 const getQuizQuestionStats = async (quizId) => quizStatsService.getQuizQuestionStats(quizId);
 const getQuizAttemptSummaryForStudent = async (quizId, studentId) => quizStatsService.getQuizAttemptSummaryForStudent(quizId, studentId);
 const assertStudentCanAccessQuiz = async (req, moduleId, sessionId) => quizAccessService.assertStudentCanAccessQuiz(req, moduleId, sessionId);
+
+const parseArrayField = (value, fieldName) => {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (!Array.isArray(parsed)) {
+        const error = new Error(`${fieldName} harus berupa array`);
+        error.status = 400;
+        throw error;
+      }
+      return parsed;
+    } catch (error) {
+      if (!error.status) {
+        error.status = 400;
+        error.message = `${fieldName} harus berupa JSON array valid`;
+      }
+      throw error;
+    }
+  }
+
+  const error = new Error(`${fieldName} harus berupa array`);
+  error.status = 400;
+  throw error;
+};
+
+const toIntInRange = (value, fallbackValue, min, max, fieldName) => {
+  const resolvedValue = value === undefined || value === null || value === ''
+    ? fallbackValue
+    : Number(value);
+
+  if (!Number.isInteger(resolvedValue) || resolvedValue < min || resolvedValue > max) {
+    const error = new Error(`${fieldName} harus angka bulat antara ${min} sampai ${max}`);
+    error.status = 400;
+    throw error;
+  }
+
+  return resolvedValue;
+};
+
+const normalizeDifficulty = (value) => {
+  const normalized = String(value || 'medium').trim().toLowerCase();
+  if (!['easy', 'medium', 'hard'].includes(normalized)) {
+    const error = new Error('difficulty hanya boleh: easy | medium | hard');
+    error.status = 400;
+    throw error;
+  }
+
+  return normalized;
+};
+
+const normalizeLocale = (value) => {
+  const normalized = String(value || 'id').trim().toLowerCase();
+  if (!/^[a-z]{2}(-[a-z]{2})?$/.test(normalized)) {
+    const error = new Error('locale tidak valid. Gunakan format seperti id atau en');
+    error.status = 400;
+    throw error;
+  }
+
+  return normalized;
+};
+
+const applyGeneratedDraftToQuiz = async ({ moduleId, sessionId, generatedData }) => {
+  const draft = generatedData && generatedData.draft ? generatedData.draft : null;
+  if (!draft) {
+    const error = new Error('Draft AI tidak tersedia untuk diterapkan');
+    error.status = 500;
+    throw error;
+  }
+
+  const quizTitle = String(draft.quiz_title || '').trim();
+  if (!quizTitle) {
+    const error = new Error('Judul quiz hasil AI kosong');
+    error.status = 502;
+    throw error;
+  }
+
+  const quizDescription = draft.quiz_description ? String(draft.quiz_description).trim() : null;
+  const combinedQuestions = [
+    ...(Array.isArray(draft.mcq) ? draft.mcq : []),
+    ...(Array.isArray(draft.essay) ? draft.essay : [])
+  ].sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+
+  if (combinedQuestions.length === 0) {
+    const error = new Error('Draft AI tidak memiliki pertanyaan');
+    error.status = 502;
+    throw error;
+  }
+
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [quizRows] = await connection.query(
+      'SELECT * FROM session_quizzes WHERE session_id = ? LIMIT 1 FOR UPDATE',
+      [sessionId]
+    );
+
+    let quizId;
+    if (quizRows.length === 0) {
+      const [insertResult] = await connection.query(
+        `INSERT INTO session_quizzes
+         (session_id, title, description, banner_image_path, duration_minutes, max_attempts, passing_score, is_published)
+         VALUES (?, ?, ?, NULL, 30, 1, 70, 0)`,
+        [sessionId, quizTitle, quizDescription]
+      );
+      quizId = insertResult.insertId;
+    } else {
+      quizId = quizRows[0].id;
+      await connection.query(
+        `UPDATE session_quizzes
+         SET title = ?, description = ?, is_published = 0
+         WHERE id = ?`,
+        [quizTitle, quizDescription, quizId]
+      );
+    }
+
+    await connection.query('DELETE FROM quiz_questions WHERE quiz_id = ?', [quizId]);
+
+    for (const question of combinedQuestions) {
+      const questionType = String(question.question_type || '').trim().toLowerCase();
+      const questionText = String(question.question_text || '').trim();
+      const points = Number(question.points);
+      const sortOrder = Number(question.sort_order || 0) || 1;
+
+      const [questionResult] = await connection.query(
+        `INSERT INTO quiz_questions
+         (quiz_id, question_type, question_text, points, media_path, media_mime_type, sort_order)
+         VALUES (?, ?, ?, ?, NULL, NULL, ?)`,
+        [quizId, questionType, questionText, points, sortOrder]
+      );
+
+      if (questionType === 'mcq') {
+        const options = Array.isArray(question.options) ? question.options : [];
+        for (let i = 0; i < options.length; i += 1) {
+          const option = options[i];
+          await connection.query(
+            `INSERT INTO quiz_question_options (question_id, option_text, is_correct, sort_order)
+             VALUES (?, ?, ?, ?)`,
+            [
+              questionResult.insertId,
+              String(option.option_text || '').trim(),
+              option.is_correct ? 1 : 0,
+              Number(option.sort_order || i + 1)
+            ]
+          );
+        }
+      }
+    }
+
+    await connection.commit();
+
+    const [latestQuizRows] = await db.query('SELECT * FROM session_quizzes WHERE id = ?', [quizId]);
+    const [questionRows] = await db.query(
+      `SELECT id, quiz_id, question_type, question_text, points, sort_order
+       FROM quiz_questions
+       WHERE quiz_id = ?
+       ORDER BY sort_order ASC, id ASC`,
+      [quizId]
+    );
+
+    const questionIds = questionRows.map((item) => item.id);
+    let optionRows = [];
+    if (questionIds.length > 0) {
+      const placeholders = questionIds.map(() => '?').join(',');
+      const [rows] = await db.query(
+        `SELECT id, question_id, option_text, is_correct, sort_order
+         FROM quiz_question_options
+         WHERE question_id IN (${placeholders})
+         ORDER BY sort_order ASC, id ASC`,
+        questionIds
+      );
+      optionRows = rows;
+    }
+
+    const optionMap = new Map();
+    for (const option of optionRows) {
+      const current = optionMap.get(option.question_id) || [];
+      current.push(option);
+      optionMap.set(option.question_id, current);
+    }
+
+    return {
+      applied: true,
+      mode: 'replace',
+      quiz: {
+        ...latestQuizRows[0],
+        banner_download_url: latestQuizRows[0].banner_image_path
+          ? `/api/modules/${moduleId}/sessions/${sessionId}/quiz/banner`
+          : null,
+        questions: questionRows.map((question) => ({
+          ...question,
+          options: optionMap.get(question.id) || []
+        }))
+      }
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+const generateQuizDraft = async (req, res) => {
+  const moduleId = Number(req.params.moduleId);
+  const sessionId = Number(req.params.sessionId);
+  const body = req.body || {};
+
+  try {
+    const manageable = await canManageModule(req.user, moduleId);
+    if (!manageable) {
+      return res.status(403).json({ success: false, message: 'Tidak memiliki akses generate draft quiz sesi ini' });
+    }
+
+    const sessionRow = await getSessionRow(moduleId, sessionId);
+    if (!sessionRow) {
+      return res.status(404).json({ success: false, message: 'Sesi tidak ditemukan pada module ini' });
+    }
+
+    const sourceMode = String(body.source_mode || 'session_contents').trim().toLowerCase();
+    if (sourceMode !== 'session_contents') {
+      return res.status(400).json({
+        success: false,
+        message: 'source_mode saat ini hanya mendukung session_contents'
+      });
+    }
+
+    const parsedContentIds = parseArrayField(body.content_ids, 'content_ids');
+    const contentIds = parsedContentIds
+      ? parsedContentIds.map((item) => Number(item))
+      : null;
+
+    if (contentIds && contentIds.some((item) => !Number.isInteger(item) || item <= 0)) {
+      return res.status(400).json({
+        success: false,
+        message: 'content_ids harus berisi angka id konten yang valid'
+      });
+    }
+
+    const uniqueContentIds = contentIds ? [...new Set(contentIds)] : null;
+
+    const mcqCount = toIntInRange(body.mcq_count, 5, 1, 20, 'mcq_count');
+    const essayCount = toIntInRange(body.essay_count, 3, 0, 20, 'essay_count');
+    const difficulty = normalizeDifficulty(body.difficulty);
+    const locale = normalizeLocale(body.locale);
+    const manualContext = body.manual_context ? String(body.manual_context).trim() : '';
+    const applyToQuiz = Object.prototype.hasOwnProperty.call(body, 'apply_to_quiz')
+      ? toBoolean(body.apply_to_quiz)
+      : true;
+
+    const data = await quizDraftAiService.generateDraft({
+      moduleId,
+      sessionId,
+      contentIds: uniqueContentIds,
+      manualContext,
+      mcqCount,
+      essayCount,
+      difficulty,
+      locale
+    });
+
+    if (applyToQuiz) {
+      const appliedQuiz = await applyGeneratedDraftToQuiz({ moduleId, sessionId, generatedData: data });
+      data.applied_quiz = appliedQuiz;
+    }
+
+    return res.json({
+      success: true,
+      message: applyToQuiz
+        ? 'Draft soal quiz berhasil digenerate dan menggantikan quiz sesi saat ini'
+        : 'Draft soal quiz berhasil digenerate',
+      data
+    });
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.status ? error.message : 'Gagal generate draft quiz'
+    });
+  }
+};
 
 const createQuiz = async (req, res) => {
   const moduleId = Number(req.params.moduleId);
@@ -886,6 +1175,74 @@ const reviewEssayAttempt = async (req, res) => {
   }
 };
 
+const getQuizLeaderboard = async (req, res) => {
+  const moduleId = Number(req.params.moduleId);
+  const sessionId = Number(req.params.sessionId);
+  const mode = req.query && req.query.mode ? String(req.query.mode).trim().toLowerCase() : 'latest';
+
+  try {
+    const data = await quizAttemptService.getLeaderboard({ moduleId, sessionId, user: req.user, mode });
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.status ? error.message : 'Gagal mengambil leaderboard quiz'
+    });
+  }
+};
+
+const updateQuizLeaderboardVisibility = async (req, res) => {
+  const moduleId = Number(req.params.moduleId);
+  const sessionId = Number(req.params.sessionId);
+  const visibility = req.body && req.body.leaderboard_visibility;
+
+  try {
+    const data = await quizAttemptService.updateLeaderboardVisibility({
+      moduleId,
+      sessionId,
+      user: req.user,
+      visibility
+    });
+
+    return res.json({
+      success: true,
+      message: 'Visibility leaderboard quiz berhasil diperbarui',
+      data
+    });
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.status ? error.message : 'Gagal mengubah visibility leaderboard quiz'
+    });
+  }
+};
+
+const deleteQuizAttempt = async (req, res) => {
+  const moduleId = Number(req.params.moduleId);
+  const sessionId = Number(req.params.sessionId);
+  const attemptId = Number(req.params.attemptId);
+
+  try {
+    const data = await quizAttemptService.deleteAttempt({
+      moduleId,
+      sessionId,
+      attemptId,
+      user: req.user
+    });
+
+    return res.json({
+      success: true,
+      message: 'Attempt quiz berhasil dihapus',
+      data
+    });
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.status ? error.message : 'Gagal menghapus attempt quiz'
+    });
+  }
+};
+
 module.exports = {
   createQuiz,
   updateQuiz,
@@ -900,5 +1257,9 @@ module.exports = {
   submitQuizAttempt,
   listQuizAttempts,
   getQuizAttemptDetail,
-  reviewEssayAttempt
+  reviewEssayAttempt,
+  generateQuizDraft,
+  getQuizLeaderboard,
+  updateQuizLeaderboardVisibility,
+  deleteQuizAttempt
 };

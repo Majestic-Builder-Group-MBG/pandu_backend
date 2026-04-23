@@ -33,11 +33,15 @@ const {
   updateQuizQuestion,
   deleteQuizQuestion,
   downloadQuestionMedia,
+  generateQuizDraft,
   startQuizAttempt,
   submitQuizAttempt,
   listQuizAttempts,
   getQuizAttemptDetail,
-  reviewEssayAttempt
+  reviewEssayAttempt,
+  getQuizLeaderboard,
+  updateQuizLeaderboardVisibility,
+  deleteQuizAttempt
 } = require('../controllers/quizController');
 const {
   getSessionReminder,
@@ -73,6 +77,7 @@ router.put('/:moduleId/sessions/:sessionId/contents/:contentId', auth, authorize
 router.delete('/:moduleId/sessions/:sessionId/contents/:contentId', auth, authorize('teacher', 'admin'), deleteSessionContent);
 
 router.get('/:moduleId/sessions/:sessionId/quiz', auth, getQuiz);
+router.post('/:moduleId/sessions/:sessionId/quiz/generate-draft', auth, authorize('teacher', 'admin'), upload.none(), generateQuizDraft);
 router.post('/:moduleId/sessions/:sessionId/quiz', auth, authorize('teacher', 'admin'), upload.single('banner'), createQuiz);
 router.put('/:moduleId/sessions/:sessionId/quiz', auth, authorize('teacher', 'admin'), upload.single('banner'), updateQuiz);
 router.patch('/:moduleId/sessions/:sessionId/quiz/publish', auth, authorize('teacher', 'admin'), upload.none(), publishQuiz);
@@ -86,8 +91,12 @@ router.get('/:moduleId/sessions/:sessionId/quiz/questions/:questionId/media', au
 router.post('/:moduleId/sessions/:sessionId/quiz/start', auth, upload.none(), startQuizAttempt);
 router.post('/:moduleId/sessions/:sessionId/quiz/submit', auth, upload.none(), submitQuizAttempt);
 
+router.get('/:moduleId/sessions/:sessionId/quiz/leaderboard', auth, getQuizLeaderboard);
+router.patch('/:moduleId/sessions/:sessionId/quiz/leaderboard-visibility', auth, authorize('teacher', 'admin'), upload.none(), updateQuizLeaderboardVisibility);
+
 router.get('/:moduleId/sessions/:sessionId/quiz/attempts', auth, authorize('teacher', 'admin'), listQuizAttempts);
 router.get('/:moduleId/sessions/:sessionId/quiz/attempts/:attemptId', auth, authorize('teacher', 'admin'), getQuizAttemptDetail);
 router.patch('/:moduleId/sessions/:sessionId/quiz/attempts/:attemptId/review', auth, authorize('teacher', 'admin'), upload.none(), reviewEssayAttempt);
+router.delete('/:moduleId/sessions/:sessionId/quiz/attempts/:attemptId', auth, authorize('teacher', 'admin'), deleteQuizAttempt);
 
 module.exports = router;

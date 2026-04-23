@@ -5,14 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dokumentasi Pandu Backend</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
     :root {
-      --bg: #edf2f4;
-      --card: #8d99ae;
-      --card-soft: rgba(255, 255, 255, 0.2);
-      --stroke: #2b2d42;
-      --text: #2b2d42;
-      --muted: #3f4768;
-      --label: #f1faee;
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --card-soft: #f5f7fa;
+      --stroke: #d6deea;
+      --text: #1d2a38;
+      --muted: #4b6074;
+      --label: #f7f9fd;
+      --code-bg: #f3f6fb;
+      --copy-btn: #274666;
+      --copy-btn-hover: #213d5a;
     }
 
     * { box-sizing: border-box; }
@@ -21,7 +26,7 @@
 
     body {
       margin: 0;
-      font-family: monospace;
+      font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
       background: var(--bg);
       color: var(--text);
       line-height: 1.45;
@@ -40,9 +45,9 @@
       justify-content: space-between;
       gap: 10px;
       padding: 12px 20px;
-      background: var(--card);
-      border-bottom: 2px solid var(--stroke);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+      background: #ffffff;
+      border-bottom: 1px solid var(--stroke);
+      box-shadow: 0 2px 8px rgba(17, 24, 39, 0.05);
     }
 
     .nav-brand {
@@ -104,8 +109,8 @@
       font-size: 0.9rem;
       margin-bottom: 6px;
       color: var(--label);
-      background: var(--text);
-      border: 2px solid var(--stroke);
+      background: #274666;
+      border: 1px solid var(--stroke);
       border-radius: 8px;
       padding: 4px 8px;
     }
@@ -124,7 +129,7 @@
       color: var(--text);
       font-weight: 700;
       background: var(--card-soft);
-      border: 2px solid var(--stroke);
+      border: 1px solid var(--stroke);
       border-radius: 8px;
       padding: 6px 8px;
     }
@@ -140,11 +145,11 @@
 
     .card {
       background: var(--card);
-      border: 2px solid var(--stroke);
-      border-radius: 20px;
+      border: 1px solid var(--stroke);
+      border-radius: 14px;
       padding: 24px;
       margin-bottom: 14px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+      box-shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
     }
 
     .hero {
@@ -154,24 +159,24 @@
     h1, h2, h3 { margin: 0 0 8px; }
 
     h1 {
-      font-size: 1.62rem;
+      font-size: 1.34rem;
       text-transform: uppercase;
-      letter-spacing: 0.6px;
+      letter-spacing: 0.4px;
     }
 
     h2 {
-      font-size: 1.22rem;
+      font-size: 1.02rem;
       text-transform: uppercase;
     }
 
     h3 {
-      font-size: 1.06rem;
+      font-size: 0.94rem;
       margin-top: 8px;
     }
 
     .meta {
       color: var(--muted);
-      font-size: 1rem;
+      font-size: 0.88rem;
       margin-top: 4px;
     }
 
@@ -195,26 +200,54 @@
     }
 
     code, pre {
-      font-family: inherit;
-      background: var(--card-soft);
-      border: 2px solid var(--stroke);
+      font-family: 'JetBrains Mono', 'Consolas', monospace;
+      background: var(--code-bg);
+      border: 1px solid var(--stroke);
       border-radius: 10px;
     }
 
     code {
       padding: 4px 8px;
       word-break: break-all;
-      font-size: 0.98rem;
+      font-size: 0.85rem;
     }
 
     pre {
       margin: 8px 0;
-      padding: 12px;
+      padding: 14px;
       overflow: auto;
-      font-size: 0.96rem;
-      line-height: 1.55;
+      font-size: 0.82rem;
+      line-height: 1.48;
       white-space: pre-wrap;
       word-break: break-word;
+    }
+
+    .copy-wrap {
+      position: relative;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      border: 0;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      color: #fff;
+      background: var(--copy-btn);
+      cursor: pointer;
+    }
+
+    .copy-btn:hover {
+      background: var(--copy-btn-hover);
+    }
+
+    .copy-btn.copied {
+      background: #1f6a46;
     }
 
     .ok,
@@ -249,7 +282,7 @@
       color: var(--label);
       padding: 6px 10px;
       border-radius: 8px;
-      font-size: 0.95rem;
+      font-size: 0.82rem;
     }
 
     @media (max-width: 980px) {
@@ -282,7 +315,7 @@
     @media (max-width: 860px) {
       .grid { grid-template-columns: 1fr; }
       .card { padding: 18px; }
-      h1 { font-size: 1.36rem; }
+      h1 { font-size: 1.18rem; }
       .menu { grid-template-columns: 1fr; }
       .nav-brand { font-size: 0.9rem; }
     }
@@ -348,6 +381,17 @@
       <div class="meta"><b>API create module:</b> <code>POST /api/modules</code> (teacher/admin)</div>
       <div class="meta">Lokasi file konten: <code>storage/modules/{moduleId}/sessions/{sessionId}</code></div>
       <div class="meta">Lokasi file banner: <code>storage/modules/{moduleId}/banner</code></div>
+
+      <h3>Environment Variables Penting</h3>
+      <pre>OPENROUTER_API_KEY=isi-api-key-openrouter
+OPENROUTER_MODEL=openai/gpt-oss-120b:free
+
+REMINDER_DISPATCH_ENABLED=true
+REMINDER_DISPATCH_INTERVAL_MS=60000
+
+VAPID_PUBLIC_KEY=isi-public-key
+VAPID_PRIVATE_KEY=isi-private-key
+VAPID_SUBJECT=mailto:you@example.com</pre>
     </section>
 
     <section id="auth" class="card">
@@ -956,6 +1000,7 @@ GET /api/push/subscriptions/me</pre>
       <div class="meta warn">MCQ dinilai otomatis sistem, Essay dinilai manual oleh teacher/admin.</div>
 
       <pre>GET /api/modules/:moduleId/sessions/:sessionId/quiz
+POST /api/modules/:moduleId/sessions/:sessionId/quiz/generate-draft      (teacher/admin)
 POST /api/modules/:moduleId/sessions/:sessionId/quiz                    (teacher/admin, multipart)
 PUT /api/modules/:moduleId/sessions/:sessionId/quiz                     (teacher/admin, multipart)
 PATCH /api/modules/:moduleId/sessions/:sessionId/quiz/publish           (teacher/admin)
@@ -968,10 +1013,134 @@ GET /api/modules/:moduleId/sessions/:sessionId/quiz/questions/:questionId/media
 
 POST /api/modules/:moduleId/sessions/:sessionId/quiz/start               (student)
 POST /api/modules/:moduleId/sessions/:sessionId/quiz/submit              (student)
+GET /api/modules/:moduleId/sessions/:sessionId/quiz/leaderboard?mode=latest|best|all (teacher/admin, student jika public)
+PATCH /api/modules/:moduleId/sessions/:sessionId/quiz/leaderboard-visibility (teacher/admin)
 
 GET /api/modules/:moduleId/sessions/:sessionId/quiz/attempts             (teacher/admin)
 GET /api/modules/:moduleId/sessions/:sessionId/quiz/attempts/:attemptId  (teacher/admin)
-PATCH /api/modules/:moduleId/sessions/:sessionId/quiz/attempts/:attemptId/review (teacher/admin)</pre>
+PATCH /api/modules/:moduleId/sessions/:sessionId/quiz/attempts/:attemptId/review (teacher/admin)
+DELETE /api/modules/:moduleId/sessions/:sessionId/quiz/attempts/:attemptId (teacher/admin)</pre>
+
+      <h3>Generate Draft Soal Dengan AI</h3>
+      <div class="meta ok">Isolasi konteks per sesi bersifat ketat: generate quiz hanya membaca konten milik <b>sessionId</b> yang sedang diproses (tidak lintas sesi).</div>
+      <div class="meta">Sumber konteks didukung saat ini: <code>PDF</code> (content_type=file + mime pdf) dan <code>text_content</code>.</div>
+      <div class="meta warn">Untuk file <code>image/*</code> dan <code>video/*</code>, sistem akan skip otomatis dan menambahkan warning. Gunakan <code>manual_context</code> sebagai fallback.</div>
+      <div class="meta">Jika seluruh konten sesi tidak bisa diproses otomatis, request akan ditolak sampai user mengisi <code>manual_context</code>.</div>
+      <pre>curl -X POST "{{BASE_URL}}/api/modules/12/sessions/33/quiz/generate-draft" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_mode": "session_contents",
+    "content_ids": [70, 71],
+    "manual_context": "Fallback jika konten tidak bisa diekstrak",
+    "apply_to_quiz": true,
+    "mcq_count": 5,
+    "essay_count": 3,
+    "difficulty": "medium",
+    "locale": "id"
+  }'</pre>
+
+      <h3>Aturan Penting Generate Draft</h3>
+      <pre>- Hanya teacher/admin yang bisa trigger generate draft.
+- source_mode saat ini hanya mendukung "session_contents".
+- Jika content_ids dikirim, semua id harus milik sesi yang sama (moduleId + sessionId).
+- Konten lintas sesi otomatis ditolak (validasi backend).
+- Jika tidak ada konteks valid dari PDF/text, wajib kirim manual_context.</pre>
+
+      <pre>- apply_to_quiz default = true.
+- Jika true: hasil generate langsung replace quiz pada sesi yang sama (tidak numpuk pertanyaan lama + baru).
+- Quiz otomatis di-unpublish saat replace agar teacher bisa review dulu sebelum publish ulang.
+- Judul + deskripsi quiz diisi dari konteks AI (tidak lagi format kaku seperti "Quiz Sesi #...").
+- Distribusi points otomatis total 100.00 (float), menyesuaikan jumlah MCQ + Essay.</pre>
+
+      <h3>Kontrak Skor Attempt (UI Source of Truth)</h3>
+      <pre>- final_score_percent (0..100, 2 desimal) = nilai utama untuk frontend.
+- total_points, auto_score_points, manual_score_points, final_score_points disediakan untuk audit poin mentah.
+- final_score (legacy) tetap dikirim agar kompatibel, nilainya mengikuti final_score_percent.
+- passed dihitung dari passing_score quiz pada attempt tersebut.
+- Backend clamp nilai agar tidak melewati batas logis.</pre>
+
+      <h3>Contoh Response Generate Draft + Apply Replace</h3>
+      <pre>{
+  "success": true,
+  "message": "Draft soal quiz berhasil digenerate dan menggantikan quiz sesi saat ini",
+  "data": {
+    "model": "openai/gpt-oss-120b:free",
+    "source_summary": {
+      "source_mode": "session_contents",
+      "used_content_ids": [70],
+      "skipped_content_ids": [
+        { "content_id": 71, "reason": "unsupported_file_type" }
+      ],
+      "used_manual_context": false
+    },
+    "warnings": [
+      "content_id=71 tipe file belum didukung untuk generate otomatis (image/jpeg)"
+    ],
+    "draft": {
+      "quiz_title": "Kuis Perubahan Bentuk Energi dan Pemanfaatannya",
+      "quiz_description": "Evaluasi pemahaman konsep transformasi energi, contoh penerapan, dan alasan ilmiah dalam konteks materi sesi.",
+      "mcq": [
+        {
+          "sort_order": 1,
+          "question_type": "mcq",
+          "question_text": "...",
+          "points": 8.33,
+          "options": [
+            { "option_text": "A", "is_correct": false, "sort_order": 1 },
+            { "option_text": "B", "is_correct": true, "sort_order": 2 },
+            { "option_text": "C", "is_correct": false, "sort_order": 3 },
+            { "option_text": "D", "is_correct": false, "sort_order": 4 }
+          ]
+        }
+      ],
+      "essay": [
+        {
+          "sort_order": 6,
+          "question_type": "essay",
+          "question_text": "Menurut pendapatmu, mengapa hemat energi perlu dilakukan di rumah? Jelaskan singkat alasannya.",
+          "points": 16.67,
+          "rubric_hint": "..."
+        }
+      ],
+      "totals": {
+        "mcq_count": 5,
+        "essay_count": 3,
+        "points_total": 100
+      }
+    },
+    "applied_quiz": {
+      "applied": true,
+      "mode": "replace"
+    }
+  }
+}</pre>
+
+      <h3>Leaderboard Quiz</h3>
+      <div class="meta">Default leaderboard bersifat <code>private</code> (hanya teacher/admin). Jika diubah ke <code>public</code>, hanya student yang enroll di modul terkait yang dapat melihat.</div>
+      <pre># Ubah visibility leaderboard
+curl -X PATCH "{{BASE_URL}}/api/modules/12/sessions/33/quiz/leaderboard-visibility" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "leaderboard_visibility": "public"
+  }'
+
+# Ambil leaderboard
+curl -X GET "{{BASE_URL}}/api/modules/12/sessions/33/quiz/leaderboard?mode=latest" \
+  -H "Authorization: Bearer JWT_TOKEN_STUDENT"</pre>
+
+      <h3>Field Penting di Leaderboard</h3>
+      <pre>rank, student_id, student_name,
+attempt_id, attempt_no, submitted_at,
+final_score_percent, final_score_points, total_points</pre>
+
+      <h3>Field Penting di Attempt Detail</h3>
+      <pre>total_points,
+auto_score, manual_score, final_score, final_score_percent,
+auto_score_points, manual_score_points, final_score_points,
+passing_score, passed,
+answers[]: question_id, question_type, question_points, auto_points, manual_points, is_correct, selected_option_id</pre>
 
       <h3>Payload Create/Update Quiz (multipart)</h3>
       <pre>title: string (wajib saat create)
@@ -1046,6 +1215,10 @@ curl -X POST "{{BASE_URL}}/api/modules/12/sessions/33/quiz/submit" \
       }
     ]
   }'</pre>
+
+      <h3>Contoh Hapus Attempt Quiz User</h3>
+      <pre>curl -X DELETE "{{BASE_URL}}/api/modules/12/sessions/33/quiz/attempts/101" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER"</pre>
 
       <h3>Contoh Error Quiz</h3>
       <pre># 400 - publish ditolak karena MCQ belum valid
@@ -1137,6 +1310,7 @@ Query pagination opsional:
       const menuToggle = document.getElementById('menuToggle');
       const navBackdrop = document.getElementById('navBackdrop');
       const menuLinks = document.querySelectorAll('.sidebar .menu a');
+      const allPreBlocks = document.querySelectorAll('pre');
 
       const closeMenu = function () {
         document.body.classList.remove('nav-open');
@@ -1153,6 +1327,55 @@ Query pagination opsional:
       };
 
       baseUrl.textContent = window.location.origin;
+
+      const copyText = async function (text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          return;
+        }
+
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      };
+
+      for (const pre of allPreBlocks) {
+        const wrap = document.createElement('div');
+        wrap.className = 'copy-wrap';
+
+        pre.parentNode.insertBefore(wrap, pre);
+        wrap.appendChild(pre);
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'copy-btn';
+        button.textContent = 'Copy';
+
+        button.addEventListener('click', async function () {
+          try {
+            await copyText(pre.textContent || '');
+            button.textContent = 'Copied';
+            button.classList.add('copied');
+            setTimeout(function () {
+              button.textContent = 'Copy';
+              button.classList.remove('copied');
+            }, 1200);
+          } catch (error) {
+            button.textContent = 'Gagal';
+            setTimeout(function () {
+              button.textContent = 'Copy';
+            }, 1200);
+          }
+        });
+
+        wrap.appendChild(button);
+      }
 
       if (menuToggle) {
         menuToggle.addEventListener('click', toggleMenu);
