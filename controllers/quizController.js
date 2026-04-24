@@ -42,6 +42,15 @@ const getQuizQuestionStats = async (quizId) => quizStatsService.getQuizQuestionS
 const getQuizAttemptSummaryForStudent = async (quizId, studentId) => quizStatsService.getQuizAttemptSummaryForStudent(quizId, studentId);
 const assertStudentCanAccessQuiz = async (req, moduleId, sessionId) => quizAccessService.assertStudentCanAccessQuiz(req, moduleId, sessionId);
 
+const buildQuestionResponse = (question, moduleId, sessionId, options = []) => ({
+  ...question,
+  has_media: Boolean(question && question.media_path),
+  media_url: question && question.media_path
+    ? `/api/modules/${moduleId}/sessions/${sessionId}/quiz/questions/${question.id}/media`
+    : null,
+  options
+});
+
 const parseArrayField = (value, fieldName) => {
   if (value === undefined || value === null || value === '') {
     return null;
@@ -238,10 +247,12 @@ const applyGeneratedDraftToQuiz = async ({ moduleId, sessionId, generatedData })
         banner_download_url: latestQuizRows[0].banner_image_path
           ? `/api/modules/${moduleId}/sessions/${sessionId}/quiz/banner`
           : null,
-        questions: questionRows.map((question) => ({
-          ...question,
-          options: optionMap.get(question.id) || []
-        }))
+        questions: questionRows.map((question) => buildQuestionResponse(
+          question,
+          moduleId,
+          sessionId,
+          optionMap.get(question.id) || []
+        ))
       }
     };
   } catch (error) {
@@ -645,13 +656,12 @@ const getQuiz = async (req, res) => {
       optionMap.set(option.question_id, list);
     }
 
-    const questionData = questions.map((question) => ({
-      ...question,
-      media_url: question.media_path
-        ? `/api/modules/${moduleId}/sessions/${sessionId}/quiz/questions/${question.id}/media`
-        : null,
-      options: optionMap.get(question.id) || []
-    }));
+    const questionData = questions.map((question) => buildQuestionResponse(
+      question,
+      moduleId,
+      sessionId,
+      optionMap.get(question.id) || []
+    ));
 
     const data = {
       ...quiz,
@@ -811,13 +821,7 @@ const addQuizQuestion = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: 'Pertanyaan quiz berhasil ditambahkan',
-      data: {
-        ...question,
-        media_url: question.media_path
-          ? `/api/modules/${moduleId}/sessions/${sessionId}/quiz/questions/${question.id}/media`
-          : null,
-        options: optionRows
-      }
+      data: buildQuestionResponse(question, moduleId, sessionId, optionRows)
     });
   } catch (error) {
     if (req.file) removeFileSafe(req.file.path);
@@ -972,13 +976,7 @@ const updateQuizQuestion = async (req, res) => {
     return res.json({
       success: true,
       message: 'Pertanyaan quiz berhasil diperbarui',
-      data: {
-        ...question,
-        media_url: question.media_path
-          ? `/api/modules/${moduleId}/sessions/${sessionId}/quiz/questions/${question.id}/media`
-          : null,
-        options: optionRows
-      }
+      data: buildQuestionResponse(question, moduleId, sessionId, optionRows)
     });
   } catch (error) {
     if (req.file) removeFileSafe(req.file.path);

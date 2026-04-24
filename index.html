@@ -210,6 +210,8 @@
       padding: 4px 8px;
       word-break: break-all;
       font-size: 0.85rem;
+      color: #000;
+      font-weight: bold;
     }
 
     pre {
@@ -381,17 +383,6 @@
       <div class="meta"><b>API create module:</b> <code>POST /api/modules</code> (teacher/admin)</div>
       <div class="meta">Lokasi file konten: <code>storage/modules/{moduleId}/sessions/{sessionId}</code></div>
       <div class="meta">Lokasi file banner: <code>storage/modules/{moduleId}/banner</code></div>
-
-      <h3>Environment Variables Penting</h3>
-      <pre>OPENROUTER_API_KEY=isi-api-key-openrouter
-OPENROUTER_MODEL=openai/gpt-oss-120b:free
-
-REMINDER_DISPATCH_ENABLED=true
-REMINDER_DISPATCH_INTERVAL_MS=60000
-
-VAPID_PUBLIC_KEY=isi-public-key
-VAPID_PRIVATE_KEY=isi-private-key
-VAPID_SUBJECT=mailto:you@example.com</pre>
     </section>
 
     <section id="auth" class="card">
@@ -532,6 +523,14 @@ curl -X DELETE "{{BASE_URL}}/api/auth/register-codes/expired" \
 
       <div class="meta">List modul (<code>GET /api/modules</code>) memakai shape standar list: <code>{ success, data, meta }</code>.</div>
       <div class="meta">Setiap modul menyertakan <code>capabilities</code> (mis: <code>can_edit</code>, <code>can_delete</code>, <code>can_manage_sessions</code>).</div>
+      <div class="meta ok">Untuk menghindari probing ke endpoint quiz, payload modul list/detail kini menyertakan <code>has_quiz</code>.</div>
+
+      <h3>Field Agregat Modul</h3>
+      <pre>has_quiz: boolean
+
+Catatan frontend:
+- has_quiz=true berarti modul memiliki minimal 1 sesi dengan quiz
+- untuk tahu sesi mana yang punya quiz, baca field session.has_quiz dari endpoint detail modul atau list sesi</pre>
 
       <h3>Field Multipart Buat Modul</h3>
       <pre id="moduleCreateFields">name: string (wajib)
@@ -640,6 +639,78 @@ DELETE /api/modules/:moduleId/sessions/:sessionId/contents/:contentId (teacher/a
       <div class="meta">Untuk mendapatkan <b>contentId</b>, ambil dari endpoint <code>GET /api/modules/:moduleId/sessions/:sessionId/contents</code> pada field <code>id</code>.</div>
       <div class="meta">Status endpoint delete sesi: <b>tersedia</b> di <code>DELETE /api/modules/:moduleId/sessions/:sessionId</code>.</div>
       <div class="meta">List sesi & konten juga menyertakan <code>meta</code> pagination dan <code>capabilities</code> per item.</div>
+      <div class="meta ok">List sesi dan detail modul kini menyertakan agregat quiz agar frontend tidak perlu mencoba <code>GET /quiz</code> ke semua sesi.</div>
+
+      <h3>Field Agregat Sesi</h3>
+      <pre>has_quiz: boolean
+quiz: {
+  exists: boolean,
+  is_published: boolean
+}
+
+Catatan frontend:
+- jika has_quiz=false, jangan panggil GET /api/modules/:moduleId/sessions/:sessionId/quiz
+- quiz.is_published membantu membedakan quiz draft vs siap diakses student</pre>
+
+      <h3>Contoh Response List Sesi</h3>
+      <pre>{
+  "success": true,
+  "data": [
+    {
+      "id": 33,
+      "module_id": 12,
+      "title": "Sesi Turunan",
+      "sort_order": 1,
+      "open_at": null,
+      "created_at": "2026-04-17T10:00:00.000Z",
+      "updated_at": "2026-04-17T10:00:00.000Z",
+      "has_quiz": false,
+      "quiz": {
+        "exists": false,
+        "is_published": false
+      },
+      "capabilities": {
+        "can_view": true,
+        "can_edit": true,
+        "can_delete": true,
+        "can_manage_contents": true,
+        "can_manage_schedule": true,
+        "can_manage_quiz": true,
+        "can_start_quiz": false
+      }
+    },
+    {
+      "id": 34,
+      "module_id": 12,
+      "title": "Sesi Aplikasi Turunan",
+      "sort_order": 2,
+      "open_at": "2026-05-01T08:00:00.000Z",
+      "created_at": "2026-04-17T10:05:00.000Z",
+      "updated_at": "2026-04-17T10:05:00.000Z",
+      "has_quiz": true,
+      "quiz": {
+        "exists": true,
+        "is_published": true
+      },
+      "capabilities": {
+        "can_view": true,
+        "can_edit": true,
+        "can_delete": true,
+        "can_manage_contents": true,
+        "can_manage_schedule": true,
+        "can_manage_quiz": true,
+        "can_start_quiz": false
+      }
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "per_page": 20,
+    "total": 2,
+    "total_pages": 1,
+    "count": 2
+  }
+}</pre>
 
   <h3>Payload Tambah Konten Sesi</h3>
   <pre id="sessionContentPayload">content_type: file | url | text (wajib)
@@ -998,6 +1069,7 @@ GET /api/push/subscriptions/me</pre>
       <div class="meta ok">Struktur: module -> session -> quiz (1 quiz per sesi)</div>
       <div class="meta ok">Tipe soal didukung: <b>mcq</b> dan <b>essay</b></div>
       <div class="meta warn">MCQ dinilai otomatis sistem, Essay dinilai manual oleh teacher/admin.</div>
+      <div class="meta ok">Payload question kini menyertakan <code>has_media</code> agar frontend tidak perlu mencoba download media untuk semua soal.</div>
 
       <pre>GET /api/modules/:moduleId/sessions/:sessionId/quiz
 POST /api/modules/:moduleId/sessions/:sessionId/quiz/generate-draft      (teacher/admin)
@@ -1150,6 +1222,62 @@ remove_banner: boolean (opsional, untuk hapus banner saat update)
 duration_minutes: integer 1..480
 max_attempts: integer 1..50
 passing_score: number 0..100</pre>
+
+      <h3>Field Tambahan di Payload Question Quiz</h3>
+      <pre>has_media: boolean
+media_url: string | null
+
+Catatan frontend:
+- jika has_media=false, jangan panggil GET /api/modules/:moduleId/sessions/:sessionId/quiz/questions/:questionId/media
+- media_url hanya terisi jika soal memang punya file media</pre>
+
+      <h3>Contoh Response GET Quiz</h3>
+      <pre>{
+  "success": true,
+  "data": {
+    "id": 18,
+    "session_id": 33,
+    "title": "Quiz Sesi Turunan",
+    "description": "Evaluasi pemahaman turunan dasar",
+    "banner_download_url": "/api/modules/12/sessions/33/quiz/banner",
+    "is_published": true,
+    "questions": [
+      {
+        "id": 501,
+        "quiz_id": 18,
+        "question_type": "mcq",
+        "question_text": "Hasil turunan x^2 adalah...",
+        "points": 10,
+        "media_path": "storage/modules/12/sessions/33/quiz/questions/501/soal-1.png",
+        "media_mime_type": "image/png",
+        "sort_order": 1,
+        "has_media": true,
+        "media_url": "/api/modules/12/sessions/33/quiz/questions/501/media",
+        "options": [
+          {
+            "id": 9001,
+            "question_id": 501,
+            "option_text": "2x",
+            "sort_order": 1
+          }
+        ]
+      },
+      {
+        "id": 502,
+        "quiz_id": 18,
+        "question_type": "essay",
+        "question_text": "Jelaskan konsep turunan dalam 3-5 kalimat",
+        "points": 20,
+        "media_path": null,
+        "media_mime_type": null,
+        "sort_order": 2,
+        "has_media": false,
+        "media_url": null,
+        "options": []
+      }
+    ]
+  }
+}</pre>
 
       <h3>Contoh Create Quiz</h3>
       <pre>curl -X POST "{{BASE_URL}}/api/modules/12/sessions/33/quiz" \

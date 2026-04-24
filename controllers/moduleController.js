@@ -69,6 +69,28 @@ const buildSessionContentCapabilities = (manageable, item) => ({
   can_generate_public_view_url: Boolean(item && item.is_public_view_supported)
 });
 
+const buildSessionQuizSummary = (sessionRow) => {
+  const hasQuiz = Boolean(sessionRow && sessionRow.quiz_id);
+
+  return {
+    has_quiz: hasQuiz,
+    quiz: {
+      exists: hasQuiz,
+      is_published: hasQuiz ? Boolean(sessionRow.quiz_is_published) : false
+    }
+  };
+};
+
+const buildSessionListItem = (sessionRow, user, manageable) => {
+  const { quiz_id, quiz_is_published, ...cleanSessionRow } = sessionRow || {};
+
+  return {
+    ...cleanSessionRow,
+    ...buildSessionQuizSummary(sessionRow),
+    capabilities: buildSessionCapabilities(user, manageable)
+  };
+};
+
 const createModule = async (req, res) => {
   const { name, description = null } = req.body;
 
@@ -127,7 +149,10 @@ const createModule = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: 'Module berhasil dibuat dengan 3 sesi default',
-      data: attachModuleBannerUrl(rows[0])
+      data: {
+        ...attachModuleBannerUrl(rows[0]),
+        has_quiz: false
+      }
     });
   } catch (error) {
     await connection.rollback();
@@ -149,7 +174,13 @@ const getModules = async (req, res) => {
     if (req.user.role === 'admin') {
       [rows] = await db.query(
         `SELECT m.id, m.name, m.description, m.banner_image_path, m.enroll_key, m.teacher_id,
-          u.name AS teacher_name, m.created_at, m.updated_at
+          u.name AS teacher_name, m.created_at, m.updated_at,
+          EXISTS(
+            SELECT 1
+            FROM module_sessions ms
+            JOIN session_quizzes sq ON sq.session_id = ms.id
+            WHERE ms.module_id = m.id
+          ) AS has_quiz
          FROM modules m
          JOIN users u ON u.id = m.teacher_id
          ORDER BY m.created_at DESC`
@@ -157,7 +188,13 @@ const getModules = async (req, res) => {
     } else if (req.user.role === 'teacher') {
       [rows] = await db.query(
         `SELECT m.id, m.name, m.description, m.banner_image_path, m.enroll_key, m.teacher_id,
-          u.name AS teacher_name, m.created_at, m.updated_at
+          u.name AS teacher_name, m.created_at, m.updated_at,
+          EXISTS(
+            SELECT 1
+            FROM module_sessions ms
+            JOIN session_quizzes sq ON sq.session_id = ms.id
+            WHERE ms.module_id = m.id
+          ) AS has_quiz
          FROM modules m
          JOIN users u ON u.id = m.teacher_id
          WHERE m.teacher_id = ?
@@ -167,7 +204,13 @@ const getModules = async (req, res) => {
     } else {
       [rows] = await db.query(
         `SELECT m.id, m.name, m.description, m.banner_image_path, m.teacher_id,
-          u.name AS teacher_name, me.enrolled_at, m.created_at, m.updated_at
+          u.name AS teacher_name, me.enrolled_at, m.created_at, m.updated_at,
+          EXISTS(
+            SELECT 1
+            FROM module_sessions ms
+            JOIN session_quizzes sq ON sq.session_id = ms.id
+            WHERE ms.module_id = m.id
+          ) AS has_quiz
          FROM module_enrollments me
          JOIN modules m ON m.id = me.module_id
          JOIN users u ON u.id = m.teacher_id
@@ -179,6 +222,7 @@ const getModules = async (req, res) => {
 
     const mappedRows = rows.map((row) => ({
       ...attachModuleBannerUrl(row),
+      has_quiz: Boolean(row.has_quiz),
       capabilities: buildModuleCapabilities(req.user, row)
     }));
 
@@ -212,18 +256,22 @@ const getModuleById = async (req, res) => {
     }
 
     const [sessions] = await db.query(
-      'SELECT id, title, sort_order, open_at, created_at, updated_at FROM module_sessions WHERE module_id = ? ORDER BY sort_order ASC, id ASC',
+      `SELECT ms.id, ms.title, ms.sort_order, ms.open_at, ms.created_at, ms.updated_at,
+         sq.id AS quiz_id, sq.is_published AS quiz_is_published
+       FROM module_sessions ms
+       LEFT JOIN session_quizzes sq ON sq.session_id = ms.id
+       WHERE ms.module_id = ?
+       ORDER BY ms.sort_order ASC, ms.id ASC`,
       [moduleId]
     );
 
     const manageable = await canManageModule(req.user, moduleId);
+    const moduleHasQuiz = sessions.some((session) => Boolean(session.quiz_id));
     const data = {
       ...attachModuleBannerUrl(moduleRows[0]),
+      has_quiz: moduleHasQuiz,
       capabilities: buildModuleCapabilities(req.user, moduleRows[0]),
-      sessions: sessions.map((session) => ({
-        ...session,
-        capabilities: buildSessionCapabilities(req.user, manageable)
-      }))
+      sessions: sessions.map((session) => buildSessionListItem(session, req.user, manageable))
     };
     if (req.user.role === 'student') {
       delete data.enroll_key;
@@ -414,14 +462,16 @@ const getModuleSessions = async (req, res) => {
     }
 
     const [sessions] = await db.query(
-      'SELECT id, module_id, title, sort_order, open_at, created_at, updated_at FROM module_sessions WHERE module_id = ? ORDER BY sort_order ASC, id ASC',
+      `SELECT ms.id, ms.module_id, ms.title, ms.sort_order, ms.open_at, ms.created_at, ms.updated_at,
+         sq.id AS quiz_id, sq.is_published AS quiz_is_published
+       FROM module_sessions ms
+       LEFT JOIN session_quizzes sq ON sq.session_id = ms.id
+       WHERE ms.module_id = ?
+       ORDER BY ms.sort_order ASC, ms.id ASC`,
       [moduleId]
     );
     const manageable = await canManageModule(req.user, moduleId);
-    const mapped = sessions.map((session) => ({
-      ...session,
-      capabilities: buildSessionCapabilities(req.user, manageable)
-    }));
+    const mapped = sessions.map((session) => buildSessionListItem(session, req.user, manageable));
 
     const { data, meta } = buildListResponse(mapped, req.query);
     return res.json({ success: true, data, meta });
@@ -452,8 +502,19 @@ const createSession = async (req, res) => {
       [moduleId, String(title).trim(), nextSortOrder]
     );
 
-    const [rows] = await db.query('SELECT * FROM module_sessions WHERE id = ?', [result.insertId]);
-    return res.status(201).json({ success: true, message: 'Sesi berhasil ditambahkan', data: rows[0] });
+    const [rows] = await db.query(
+      `SELECT ms.id, ms.module_id, ms.title, ms.sort_order, ms.open_at, ms.created_at, ms.updated_at,
+         sq.id AS quiz_id, sq.is_published AS quiz_is_published
+       FROM module_sessions ms
+       LEFT JOIN session_quizzes sq ON sq.session_id = ms.id
+       WHERE ms.id = ?`,
+      [result.insertId]
+    );
+    return res.status(201).json({
+      success: true,
+      message: 'Sesi berhasil ditambahkan',
+      data: buildSessionListItem(rows[0], req.user, true)
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Gagal menambah sesi', error: error.message });
   }
@@ -508,8 +569,19 @@ const updateSession = async (req, res) => {
       ]
     );
 
-    const [updatedRows] = await db.query('SELECT * FROM module_sessions WHERE id = ?', [sessionId]);
-    return res.json({ success: true, message: 'Sesi berhasil diperbarui', data: updatedRows[0] });
+    const [updatedRows] = await db.query(
+      `SELECT ms.id, ms.module_id, ms.title, ms.sort_order, ms.open_at, ms.created_at, ms.updated_at,
+         sq.id AS quiz_id, sq.is_published AS quiz_is_published
+       FROM module_sessions ms
+       LEFT JOIN session_quizzes sq ON sq.session_id = ms.id
+       WHERE ms.id = ?`,
+      [sessionId]
+    );
+    return res.json({
+      success: true,
+      message: 'Sesi berhasil diperbarui',
+      data: buildSessionListItem(updatedRows[0], req.user, true)
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Gagal update sesi', error: error.message });
   }
