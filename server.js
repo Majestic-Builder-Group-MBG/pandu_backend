@@ -41,6 +41,8 @@ app.use('/api/enrollments', require('./routes/enrollmentRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/reminders', require('./routes/reminderRoutes'));
 app.use('/api/push', require('./routes/pushRoutes'));
+app.use('/api/profile', require('./routes/profileRoutes'));
+app.use('/api/password-change-requests', require('./routes/passwordChangeRequestRoutes'));
 app.use('/public', require('./routes/publicRoutes'));
 
 // Test route

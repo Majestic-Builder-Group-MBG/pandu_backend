@@ -76,13 +76,14 @@ const buildSessionQuizSummary = (sessionRow) => {
     has_quiz: hasQuiz,
     quiz: {
       exists: hasQuiz,
-      is_published: hasQuiz ? Boolean(sessionRow.quiz_is_published) : false
+      is_published: hasQuiz ? Boolean(sessionRow.quiz_is_published) : false,
+      has_banner: hasQuiz ? Boolean(sessionRow.quiz_banner_image_path) : false
     }
   };
 };
 
 const buildSessionListItem = (sessionRow, user, manageable) => {
-  const { quiz_id, quiz_is_published, ...cleanSessionRow } = sessionRow || {};
+  const { quiz_id, quiz_is_published, quiz_banner_image_path, ...cleanSessionRow } = sessionRow || {};
 
   return {
     ...cleanSessionRow,
@@ -257,7 +258,7 @@ const getModuleById = async (req, res) => {
 
     const [sessions] = await db.query(
       `SELECT ms.id, ms.title, ms.sort_order, ms.open_at, ms.created_at, ms.updated_at,
-         sq.id AS quiz_id, sq.is_published AS quiz_is_published
+         sq.id AS quiz_id, sq.is_published AS quiz_is_published, sq.banner_image_path AS quiz_banner_image_path
        FROM module_sessions ms
        LEFT JOIN session_quizzes sq ON sq.session_id = ms.id
        WHERE ms.module_id = ?
@@ -463,7 +464,7 @@ const getModuleSessions = async (req, res) => {
 
     const [sessions] = await db.query(
       `SELECT ms.id, ms.module_id, ms.title, ms.sort_order, ms.open_at, ms.created_at, ms.updated_at,
-         sq.id AS quiz_id, sq.is_published AS quiz_is_published
+         sq.id AS quiz_id, sq.is_published AS quiz_is_published, sq.banner_image_path AS quiz_banner_image_path
        FROM module_sessions ms
        LEFT JOIN session_quizzes sq ON sq.session_id = ms.id
        WHERE ms.module_id = ?
@@ -504,7 +505,7 @@ const createSession = async (req, res) => {
 
     const [rows] = await db.query(
       `SELECT ms.id, ms.module_id, ms.title, ms.sort_order, ms.open_at, ms.created_at, ms.updated_at,
-         sq.id AS quiz_id, sq.is_published AS quiz_is_published
+         sq.id AS quiz_id, sq.is_published AS quiz_is_published, sq.banner_image_path AS quiz_banner_image_path
        FROM module_sessions ms
        LEFT JOIN session_quizzes sq ON sq.session_id = ms.id
        WHERE ms.id = ?`,
@@ -571,7 +572,7 @@ const updateSession = async (req, res) => {
 
     const [updatedRows] = await db.query(
       `SELECT ms.id, ms.module_id, ms.title, ms.sort_order, ms.open_at, ms.created_at, ms.updated_at,
-         sq.id AS quiz_id, sq.is_published AS quiz_is_published
+         sq.id AS quiz_id, sq.is_published AS quiz_is_published, sq.banner_image_path AS quiz_banner_image_path
        FROM module_sessions ms
        LEFT JOIN session_quizzes sq ON sq.session_id = ms.id
        WHERE ms.id = ?`,

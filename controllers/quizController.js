@@ -244,6 +244,7 @@ const applyGeneratedDraftToQuiz = async ({ moduleId, sessionId, generatedData })
       mode: 'replace',
       quiz: {
         ...latestQuizRows[0],
+        has_banner: Boolean(latestQuizRows[0].banner_image_path),
         banner_download_url: latestQuizRows[0].banner_image_path
           ? `/api/modules/${moduleId}/sessions/${sessionId}/quiz/banner`
           : null,
@@ -414,6 +415,7 @@ const createQuiz = async (req, res) => {
     const [rows] = await db.query('SELECT * FROM session_quizzes WHERE id = ?', [result.insertId]);
     const data = {
       ...rows[0],
+      has_banner: Boolean(rows[0].banner_image_path),
       banner_download_url: rows[0].banner_image_path
         ? `/api/modules/${moduleId}/sessions/${sessionId}/quiz/banner`
         : null
@@ -524,6 +526,7 @@ const updateQuiz = async (req, res) => {
     const [rows] = await db.query('SELECT * FROM session_quizzes WHERE id = ?', [quiz.id]);
     const data = {
       ...rows[0],
+      has_banner: Boolean(rows[0].banner_image_path),
       banner_download_url: rows[0].banner_image_path
         ? `/api/modules/${moduleId}/sessions/${sessionId}/quiz/banner`
         : null
@@ -665,6 +668,7 @@ const getQuiz = async (req, res) => {
 
     const data = {
       ...quiz,
+      has_banner: Boolean(quiz.banner_image_path),
       banner_download_url: quiz.banner_image_path
         ? `/api/modules/${moduleId}/sessions/${sessionId}/quiz/banner`
         : null,

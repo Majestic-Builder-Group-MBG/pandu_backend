@@ -7,11 +7,20 @@ const initializeDatabase = async () => {
       name VARCHAR(120) NOT NULL,
       email VARCHAR(190) NOT NULL UNIQUE,
       password VARCHAR(255) NOT NULL,
+      profile_photo_path VARCHAR(500) NULL,
       role ENUM('admin', 'teacher', 'student') NOT NULL DEFAULT 'student',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB;
   `);
+
+  try {
+    await db.query('ALTER TABLE users ADD COLUMN profile_photo_path VARCHAR(500) NULL AFTER password');
+  } catch (error) {
+    if (error.code !== 'ER_DUP_FIELDNAME') {
+      throw error;
+    }
+  }
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS modules (
@@ -399,6 +408,36 @@ const initializeDatabase = async () => {
       revoked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT fk_revoked_auth_tokens_user FOREIGN KEY (revoked_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
       INDEX idx_revoked_auth_tokens_expires_at (expires_at)
+    ) ENGINE=InnoDB;
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS password_change_requests (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      status ENUM('pending', 'otp_issued', 'completed', 'rejected', 'expired') NOT NULL DEFAULT 'pending',
+      new_password_hash VARCHAR(255) NOT NULL,
+      otp_hash CHAR(64) NULL,
+      otp_expires_at DATETIME NULL,
+      otp_attempt_count INT NOT NULL DEFAULT 0,
+      max_attempts INT NOT NULL DEFAULT 3,
+      issued_by_user_id INT NULL,
+      issued_at DATETIME NULL,
+      approved_by_user_id INT NULL,
+      approved_at DATETIME NULL,
+      rejected_by_user_id INT NULL,
+      rejected_at DATETIME NULL,
+      reject_reason VARCHAR(500) NULL,
+      completed_at DATETIME NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_password_change_requests_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT fk_password_change_requests_issued_by FOREIGN KEY (issued_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+      CONSTRAINT fk_password_change_requests_approved_by FOREIGN KEY (approved_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+      CONSTRAINT fk_password_change_requests_rejected_by FOREIGN KEY (rejected_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+      INDEX idx_password_change_requests_user_status (user_id, status),
+      INDEX idx_password_change_requests_status (status),
+      INDEX idx_password_change_requests_created_at (created_at)
     ) ENGINE=InnoDB;
   `);
 

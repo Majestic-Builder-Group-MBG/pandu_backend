@@ -354,6 +354,8 @@
         <ul class="menu">
           <li><a href="#auth">Auth</a></li>
           <li><a href="#registration-codes">Kode Registrasi</a></li>
+          <li><a href="#profile">Profile</a></li>
+          <li><a href="#password-change-requests">Inbox Ganti Password</a></li>
         </ul>
       </div>
       <div class="menu-group">
@@ -506,6 +508,112 @@ curl -X PATCH "{{BASE_URL}}/api/auth/register-codes/expired/archive" \
 # Hapus = hapus permanen semua kode yang sudah kadaluarsa
 curl -X DELETE "{{BASE_URL}}/api/auth/register-codes/expired" \
   -H "Authorization: Bearer JWT_TOKEN_TEACHER"</pre>
+    </section>
+
+    <section id="profile" class="card">
+      <h2>Endpoint Profile</h2>
+      <div class="meta ok">Semua endpoint profile mewajibkan login (Bearer token).</div>
+      <div class="meta">Foto profile disimpan ke storage lokal dan dapat diambil ulang lewat endpoint download foto profile.</div>
+
+      <pre>GET /api/profile/me
+PATCH /api/profile/me
+GET /api/profile/me/photo
+PATCH /api/profile/me/photo
+
+POST /api/profile/password-change/request
+POST /api/profile/password-change/confirm</pre>
+
+      <h3>Contoh Ambil Profile Saya</h3>
+      <pre>curl -X GET "{{BASE_URL}}/api/profile/me" \
+  -H "Authorization: Bearer JWT_TOKEN_USER"</pre>
+
+      <h3>Contoh Ubah Nama</h3>
+      <pre>curl -X PATCH "{{BASE_URL}}/api/profile/me" \
+  -H "Authorization: Bearer JWT_TOKEN_USER" \
+  -F "name=Nama Baru User"</pre>
+
+      <h3>Contoh Ubah Foto Profile</h3>
+      <pre>curl -X PATCH "{{BASE_URL}}/api/profile/me/photo" \
+  -H "Authorization: Bearer JWT_TOKEN_USER" \
+  -F "photo=@C:/path/foto-profile.jpg"</pre>
+
+      <h3>Flow Ubah Password via OTP</h3>
+      <pre>1) User request ganti password:
+POST /api/profile/password-change/request
+
+Body:
+{
+  "new_password": "passwordBaru123"
+}
+
+2) Admin/Teacher berwenang membuka inbox dan issue OTP otomatis 3 digit
+3) OTP disampaikan manual ke user
+4) User konfirmasi OTP:
+POST /api/profile/password-change/confirm
+
+Body:
+{
+  "request_id": 12,
+  "otp": "482"
+}</pre>
+
+      <h3>Contoh Request Ganti Password</h3>
+      <pre>curl -X POST "{{BASE_URL}}/api/profile/password-change/request" \
+  -H "Authorization: Bearer JWT_TOKEN_USER" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "new_password": "passwordBaru123"
+  }'</pre>
+
+      <h3>Contoh Konfirmasi OTP</h3>
+      <pre>curl -X POST "{{BASE_URL}}/api/profile/password-change/confirm" \
+  -H "Authorization: Bearer JWT_TOKEN_USER" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "request_id": 12,
+    "otp": "482"
+  }'</pre>
+      <div class="meta warn">Setelah sukses ganti password, token yang sedang dipakai akan direvoke dan user perlu login ulang.</div>
+    </section>
+
+    <section id="password-change-requests" class="card">
+      <h2>Inbox Persetujuan Ganti Password</h2>
+      <div class="meta ok">Role approver: <b>admin</b> dan <b>teacher</b>.</div>
+      <div class="meta">Admin bisa proses semua request. Teacher hanya bisa proses student yang terdaftar lewat registration code buatannya.</div>
+
+      <pre>GET /api/password-change-requests/inbox
+PATCH /api/password-change-requests/:requestId/issue-otp
+PATCH /api/password-change-requests/:requestId/reject</pre>
+
+      <h3>Contoh Ambil Inbox</h3>
+      <pre>curl -X GET "{{BASE_URL}}/api/password-change-requests/inbox?page=1&per_page=10" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER"</pre>
+
+      <h3>Contoh Issue OTP 3 Digit</h3>
+      <pre>curl -X PATCH "{{BASE_URL}}/api/password-change-requests/12/issue-otp" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER"</pre>
+
+      <h3>Contoh Tolak Request</h3>
+      <pre>curl -X PATCH "{{BASE_URL}}/api/password-change-requests/12/reject" \
+  -H "Authorization: Bearer JWT_TOKEN_TEACHER" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reason": "Identitas user belum valid"
+  }'</pre>
+
+      <h3>Contoh Response Issue OTP</h3>
+      <pre>{
+  "success": true,
+  "message": "OTP berhasil dibuat. Sampaikan OTP ke user secara manual.",
+  "data": {
+    "request_id": 12,
+    "status": "otp_issued",
+    "otp": "482",
+    "otp_expires_at": "2026-04-27T10:10:00.000Z",
+    "max_attempts": 3
+  }
+}</pre>
+      <div class="meta warn">OTP 3 digit ini khusus flow internal. Tetap gunakan expiry + batas percobaan.</div>
     </section>
 
     <section id="modules" class="card">
@@ -1070,6 +1178,7 @@ GET /api/push/subscriptions/me</pre>
       <div class="meta ok">Tipe soal didukung: <b>mcq</b> dan <b>essay</b></div>
       <div class="meta warn">MCQ dinilai otomatis sistem, Essay dinilai manual oleh teacher/admin.</div>
       <div class="meta ok">Payload question kini menyertakan <code>has_media</code> agar frontend tidak perlu mencoba download media untuk semua soal.</div>
+      <div class="meta ok">Payload quiz kini menyertakan <code>has_banner</code> agar frontend tidak menembak endpoint banner saat file belum ada.</div>
 
       <pre>GET /api/modules/:moduleId/sessions/:sessionId/quiz
 POST /api/modules/:moduleId/sessions/:sessionId/quiz/generate-draft      (teacher/admin)
@@ -1231,6 +1340,15 @@ Catatan frontend:
 - jika has_media=false, jangan panggil GET /api/modules/:moduleId/sessions/:sessionId/quiz/questions/:questionId/media
 - media_url hanya terisi jika soal memang punya file media</pre>
 
+      <h3>Field Tambahan di Payload Quiz</h3>
+      <pre>has_banner: boolean
+banner_download_url: string | null
+
+Catatan frontend banner:
+- jika has_banner=false, jangan panggil GET /api/modules/:moduleId/sessions/:sessionId/quiz/banner
+- tampilkan placeholder lokal frontend
+- endpoint /quiz/banner bisa mengembalikan 404 jika banner memang belum tersedia</pre>
+
       <h3>Contoh Response GET Quiz</h3>
       <pre>{
   "success": true,
@@ -1239,6 +1357,7 @@ Catatan frontend:
     "session_id": 33,
     "title": "Quiz Sesi Turunan",
     "description": "Evaluasi pemahaman turunan dasar",
+    "has_banner": true,
     "banner_download_url": "/api/modules/12/sessions/33/quiz/banner",
     "is_published": true,
     "questions": [
@@ -1414,20 +1533,7 @@ Untuk unggah file gunakan multipart/form-data</pre>
 
 Query pagination opsional:
 - page=<angka>
-- per_page=<angka></pre>
-
-      <h3>Alur Cepat End-to-End</h3>
-      <pre>1) Admin/Teacher login -> dapat token
-2) Admin/Teacher create registration code (4-6 digit)
-3) User register menggunakan registration_code -> role mengikuti target_role kode
-4) Teacher create module -> dapat enroll_key + 3 sesi default
-5) Teacher (opsional) atur jadwal buka sesi via open_at
-6) Teacher isi konten sesi (url/text/file)
-7) Teacher buat quiz per sesi + tambah soal MCQ/Essay + publish
-8) Student enroll pakai enroll_key
-9) Student baca module, kerjakan quiz sesi (start -> submit)
-10) Sistem auto-nilai MCQ, Teacher/Admin review Essay
-11) Jika perlu, user logout agar token saat ini tidak bisa dipakai lagi</pre>
+- per_page=<angka>
     </section>
     </main>
   </div>
